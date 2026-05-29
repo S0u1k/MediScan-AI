@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
+import { ANTHROPIC_MODEL, extractJSON, extractText, getAnthropic, toImageMediaType } from "@/lib/anthropic";
 
 export const runtime = "nodejs";
 
-const GEMINI_MODEL = "gemini-1.5-flash";
-
-const SYSTEM_PROMPT = `You are a radiology triage assistant. Look at the X-ray image and identify ONLY which body part it shows. Choose exactly one of: Chest, Hand, Leg, Knee, Skull, Spine, Foot, Shoulder, Arm.
+const SYSTEM_PROMPT = `You are a radiology triage assistant. Look at the X-ray image and identify ONLY which body part it shows. Choose exactly one of: Chest, Hand, Leg, Knee, Skull, Spine, Foot, Shoulder, Arm, Other.
 Return ONLY valid JSON (no markdown) matching:
 {
   "bodyPart": string,
@@ -20,13 +19,13 @@ interface XRayPayload {
 }
 
 /**
- * Server-only X-ray analysis via Gemini Vision. The API key never leaves the
- * server. When GEMINI_API_KEY is absent or the call fails, responds with
- * { available: false } so the client can fall back to local demo mode.
+ * Server-only X-ray analysis via Claude Vision. The API key never leaves the
+ * server. When ANTHROPIC_API_KEY is absent or the call fails, responds with
+ * { available: false } so the client falls back to local demo mode.
  */
 export async function POST(request: Request) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  const client = getAnthropic();
+  if (!client) {
     return NextResponse.json({ available: false, reason: "no-api-key" }, { status: 200 });
   }
 
@@ -42,56 +41,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ available: false, reason: "missing-image" }, { status: 400 });
   }
 
+  const mediaType = toImageMediaType(mimeType);
+  if (!mediaType) {
+    return NextResponse.json({ available: false, reason: "unsupported-type" }, { status: 200 });
+  }
+
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-    const body = {
-      contents: [
+    const message = await client.messages.create({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 512,
+      temperature: 0.2,
+      messages: [
         {
-          parts: [
-            { text: SYSTEM_PROMPT },
-            { inline_data: { mime_type: mimeType, data: imageBase64 } },
+          role: "user",
+          content: [
+            { type: "text", text: SYSTEM_PROMPT },
+            {
+              type: "image",
+              source: { type: "base64", media_type: mediaType, data: imageBase64 },
+            },
           ],
         },
       ],
-      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
-    };
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
     });
 
-    if (!res.ok) {
-      return NextResponse.json({ available: false, reason: "api-error" }, { status: 200 });
-    }
-
-    const json = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-    let parsed: unknown = null;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      const first = text.indexOf("{");
-      const last = text.lastIndexOf("}");
-      if (first !== -1 && last > first) {
-        try {
-          parsed = JSON.parse(text.slice(first, last + 1));
-        } catch {
-          parsed = null;
-        }
-      }
-    }
-
+    const parsed = extractJSON(extractText(message));
     if (!parsed) {
       return NextResponse.json({ available: false, reason: "parse-error" }, { status: 200 });
     }
 
     return NextResponse.json({ available: true, result: parsed }, { status: 200 });
   } catch {
-    return NextResponse.json({ available: false, reason: "exception" }, { status: 200 });
+    return NextResponse.json({ available: false, reason: "api-error" }, { status: 200 });
   }
 }

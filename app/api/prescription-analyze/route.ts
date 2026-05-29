@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
+import { ANTHROPIC_MODEL, extractText, getAnthropic, toImageMediaType } from "@/lib/anthropic";
 import { PRESCRIPTION_SYSTEM_PROMPT } from "@/lib/prescription";
 
 export const runtime = "nodejs";
-
-const GEMINI_MODEL = "gemini-1.5-flash";
 
 interface PrescriptionPayload {
   fileBase64?: string;
@@ -11,13 +11,15 @@ interface PrescriptionPayload {
 }
 
 /**
- * Server-only prescription analysis via Gemini Vision. The API key never
- * leaves the server. When GEMINI_API_KEY is absent or the call fails, responds
- * with { available: false } so the client falls back to local demo data.
+ * Server-only prescription analysis via Claude Vision. Accepts images and
+ * PDFs. The API key never leaves the server. When ANTHROPIC_API_KEY is absent
+ * or the call fails, responds with { available: false } so the client falls
+ * back to local demo data. Returns the raw model text; the client normalizes
+ * and repairs it into valid JSON.
  */
 export async function POST(request: Request) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  const client = getAnthropic();
+  if (!client) {
     return NextResponse.json({ available: false, reason: "no-api-key" }, { status: 200 });
   }
 
@@ -33,38 +35,47 @@ export async function POST(request: Request) {
     return NextResponse.json({ available: false, reason: "missing-file" }, { status: 400 });
   }
 
+  const isPdf = mimeType.toLowerCase().includes("pdf");
+  const imageMediaType = isPdf ? null : toImageMediaType(mimeType);
+  if (!isPdf && !imageMediaType) {
+    return NextResponse.json({ available: false, reason: "unsupported-type" }, { status: 200 });
+  }
+
+  // Build the file content block (PDF document vs image).
+  const fileBlock: Anthropic.Messages.ContentBlockParam = isPdf
+    ? {
+        type: "document",
+        source: { type: "base64", media_type: "application/pdf", data: fileBase64 },
+      }
+    : {
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: imageMediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+          data: fileBase64,
+        },
+      };
+
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-    const body = {
-      contents: [
+    const message = await client.messages.create({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 1024,
+      temperature: 0.2,
+      messages: [
         {
-          parts: [
-            { text: PRESCRIPTION_SYSTEM_PROMPT },
-            { inline_data: { mime_type: mimeType, data: fileBase64 } },
-          ],
+          role: "user",
+          content: [{ type: "text", text: PRESCRIPTION_SYSTEM_PROMPT }, fileBlock],
         },
       ],
-      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
-    };
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
     });
 
-    if (!res.ok) {
-      return NextResponse.json({ available: false, reason: "api-error" }, { status: 200 });
+    const text = extractText(message);
+    if (!text) {
+      return NextResponse.json({ available: false, reason: "empty" }, { status: 200 });
     }
 
-    const json = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-    // Return the raw text; the client normalizes/repairs it with safeParseJSON.
     return NextResponse.json({ available: true, raw: text }, { status: 200 });
   } catch {
-    return NextResponse.json({ available: false, reason: "exception" }, { status: 200 });
+    return NextResponse.json({ available: false, reason: "api-error" }, { status: 200 });
   }
 }

@@ -35,7 +35,7 @@ function buildContext(user: UserProfile): string {
   return parts.join(". ");
 }
 
-/** Local rule-based fallback used when the Gemini route is unavailable. */
+/** Local rule-based fallback used when the Claude route is unavailable. */
 async function localAIResponse(message: string, user: UserProfile): Promise<string> {
   await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 600));
   const m = message.toLowerCase();
@@ -102,7 +102,7 @@ async function localAIResponse(message: string, user: UserProfile): Promise<stri
 }
 
 /**
- * Tries the server-side Gemini chat route first; on any failure (no API key,
+ * Tries the server-side Claude chat route first; on any failure (no API key,
  * network, etc.) falls back to the local rule-based assistant. Returns the
  * reply text plus which engine produced it.
  */
@@ -222,7 +222,7 @@ export function AIChatbot({ user }: AIChatbotProps) {
             <h2 className="font-medium text-white">MediScan AI Assistant</h2>
             <p className="text-xs text-white/50">
               {mode === "ai"
-                ? "Powered by Gemini"
+                ? "Powered by Claude Opus"
                 : mode === "local"
                   ? "Built-in assistant (demo)"
                   : "Always here to help"}

@@ -315,7 +315,7 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
 
             {mode === "demo" && (
               <p className="mb-4 rounded-lg bg-white/5 p-3 text-xs text-white/60">
-                Showing sample/demo output. Connect a Gemini API key to extract from your real
+                Showing sample/demo output. Connect an Anthropic API key to extract from your real
                 prescription.
               </p>
             )}

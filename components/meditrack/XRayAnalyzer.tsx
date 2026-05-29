@@ -123,7 +123,7 @@ export function XRayAnalyzer() {
       const detection = detectBodyRegion(img);
       const local = classifyBodyPart(fileName, img, detection.box);
 
-      // 3. Try the server (Gemini) route; fall back to local demo on any issue.
+      // 3. Try the server (Claude) route; fall back to local demo on any issue.
       let finalResult: XRayResult = {
         bodyPart: local.bodyPart,
         confidence: local.confidence,
