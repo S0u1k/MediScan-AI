@@ -1,0 +1,67 @@
+# ===== Dependencies =====
+/node_modules
+/.pnp
+.pnp.js
+.yarn/*
+.pnpm-store/
+
+# ===== Reference material (extracted ZIP, not part of the app) =====
+/reference-medi-track
+
+# ===== Next.js / build output =====
+/.next/
+/out/
+/build
+/dist
+.swc/
+
+# ===== Testing / coverage =====
+/coverage
+
+# ===== Environment variables & secrets (NEVER commit) =====
+# All .env files except the safe template (.env.example) are ignored.
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ===== Keys / credentials / certificates =====
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*-service-account.json
+serviceAccountKey.json
+firebase-adminsdk*.json
+gcloud-*.json
+secrets.json
+credentials.json
+
+# ===== Logs =====
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== TypeScript =====
+*.tsbuildinfo
+next-env.d.ts
+
+# ===== Editor / OS =====
+.DS_Store
+Thumbs.db
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ===== Vercel =====
+.vercel
