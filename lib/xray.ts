@@ -40,6 +40,13 @@ export interface XRayResult {
   mode: "ai" | "demo";
 }
 
+export interface XRayLikeness {
+  isXray: boolean;
+  /** Mean per-pixel color saturation, 0 (grayscale) … 1 (very colorful). */
+  saturation: number;
+  reason: string;
+}
+
 export interface FileValidation {
   ok: boolean;
   error?: string;
@@ -175,6 +182,58 @@ export function detectBodyRegion(img: HTMLImageElement): {
     },
     found: true,
     coverage,
+  };
+}
+
+/**
+ * Local heuristic: does this image even look like an X-ray? X-rays are
+ * essentially monochrome (R≈G≈B per pixel) with a bright-subject-on-dark
+ * distribution, whereas ordinary color photos (a car, a face, etc.) have high
+ * color saturation. We sample the downscaled image and measure average
+ * per-pixel saturation; very colorful images are rejected as non-X-ray.
+ */
+export function looksLikeXray(img: HTMLImageElement): XRayLikeness {
+  const maxDim = 120;
+  const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * scale));
+  const h = Math.max(1, Math.round(img.naturalHeight * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) {
+    return { isXray: true, saturation: 0, reason: "Could not inspect image; allowing." };
+  }
+  ctx.drawImage(img, 0, 0, w, h);
+  const { data } = ctx.getImageData(0, 0, w, h);
+
+  let satSum = 0;
+  let colorfulPixels = 0;
+  const total = w * h;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const sat = max === 0 ? 0 : (max - min) / max; // HSV saturation
+    satSum += sat;
+    if (max - min > 40) colorfulPixels++; // notable color spread
+  }
+  const meanSat = satSum / total;
+  const colorfulRatio = colorfulPixels / total;
+
+  // X-rays: mean saturation is very low and few pixels are colorful.
+  // Thresholds chosen to accept slightly tinted scans but reject photos.
+  const isXray = meanSat < 0.18 && colorfulRatio < 0.2;
+
+  return {
+    isXray,
+    saturation: meanSat,
+    reason: isXray
+      ? "Image is near-monochrome, consistent with an X-ray."
+      : "Image is colorful, which is not consistent with an X-ray scan.",
   };
 }
 

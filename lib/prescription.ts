@@ -27,6 +27,7 @@ export interface ExtractedMedicine {
 }
 
 export interface PrescriptionData {
+  isPrescription: boolean;
   patientName: string;
   doctorName: string;
   symptomsOrDiagnosis: string;
@@ -124,6 +125,7 @@ export function normalizePrescription(raw: unknown): PrescriptionData {
     .filter((m): m is ExtractedMedicine => m !== null);
 
   return {
+    isPrescription: r.isPrescription !== false,
     patientName: asString(r.patientName),
     doctorName: asString(r.doctorName),
     symptomsOrDiagnosis: asString(r.symptomsOrDiagnosis ?? r.symptoms ?? r.diagnosis),
@@ -158,6 +160,7 @@ export function safeParseJSON(text: string): unknown {
 /** Sample prescription used for demo mode / fallback. */
 export function demoPrescription(): PrescriptionData {
   return {
+    isPrescription: true,
     patientName: NOT_MENTIONED,
     doctorName: "Dr. Sarah Johnson",
     symptomsOrDiagnosis: "Sore throat, mild fever, acid reflux (bacterial throat infection with gastritis)",
@@ -197,8 +200,15 @@ export function demoPrescription(): PrescriptionData {
   };
 }
 
-export const PRESCRIPTION_SYSTEM_PROMPT = `You are a medical prescription parser. Read the prescription and return ONLY valid JSON (no markdown, no prose) matching exactly this shape:
+export const PRESCRIPTION_SYSTEM_PROMPT = `You are a medical prescription parser. You are shown ONE image.
+
+STEP 1 — Decide if the image is genuinely a medical prescription (a doctor's Rx, medication list, or pharmacy label). Photos of objects, people, scenery, screenshots, or unrelated documents are NOT prescriptions.
+
+STEP 2 — If and only if it IS a prescription, extract the details.
+
+Return ONLY valid JSON (no markdown, no prose) matching exactly this shape:
 {
+  "isPrescription": boolean,     // false for any non-prescription image
   "patientName": string,
   "doctorName": string,
   "symptomsOrDiagnosis": string,
@@ -217,4 +227,9 @@ export const PRESCRIPTION_SYSTEM_PROMPT = `You are a medical prescription parser
   "followUpAdvice": string,
   "warnings": string
 }
-If a field is unknown, use "Not clearly mentioned". Return JSON only.`;
+
+Rules:
+- If the image is NOT a prescription, set "isPrescription": false and return an empty "medicines" array. Do NOT invent medicines.
+- Only include medicines that are actually written in the image. Never guess or add common drugs that are not present.
+- If a field is unknown, use "Not clearly mentioned".
+- Output JSON only.`;

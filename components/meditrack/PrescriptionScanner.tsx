@@ -3,18 +3,41 @@
 import { useRef, useState } from "react";
 import { AlertTriangle, Camera, Check, FileText, Loader2, Pill, Plus, ScanLine, Upload, X } from "lucide-react";
 import { storageService, type Medicine, type MedicineSlot } from "@/lib/storage";
+import { saveUserData } from "@/lib/firestoreService";
 import {
-  demoPrescription,
   normalizePrescription,
   safeParseJSON,
   validatePrescriptionFile,
   type ExtractedMedicine,
   type PrescriptionData,
 } from "@/lib/prescription";
+import { extractTextFromImage } from "@/lib/ocr/tesseract";
+import { validatePrescription } from "@/lib/ocr/validate";
 import { GlassButton, GlassCard, SectionTitle } from "./ui";
 
 interface PrescriptionScannerProps {
   onMedicinesExtracted: () => void;
+}
+
+/** Maps an AI failure reason to an honest, user-facing message. */
+function messageForFailure(reason: string | null): string {
+  switch (reason) {
+    case "not-a-prescription":
+      return "This image does not appear to be a prescription, or no medicines could be read from it. Please upload a clear photo of a prescription, or add medicines manually from the Medicine tab.";
+    case "insufficient-credits":
+      return "The AI service is temporarily unavailable (API credit limit reached). Please try again later or add medicines manually from the Medicine tab.";
+    case "no-api-key":
+      return "AI extraction isn't configured. Add an Anthropic/OpenRouter API key to enable it, or add medicines manually from the Medicine tab.";
+    case "pdf-unsupported":
+      return "PDF analysis isn't supported yet. Please upload a clear photo (PNG/JPG/WEBP) of the prescription, or add medicines manually.";
+    case "network":
+      return "Couldn't reach the AI service. Check your connection and try again, or add medicines manually from the Medicine tab.";
+    case "parse-error":
+    case "empty":
+      return "The prescription couldn't be read clearly. Please upload a sharper photo, or add medicines manually from the Medicine tab.";
+    default:
+      return "Couldn't analyze this file. Please try a clearer prescription photo, or add medicines manually from the Medicine tab.";
+  }
 }
 
 const FOOD_LABEL: Record<ExtractedMedicine["food"], string> = {
@@ -41,7 +64,6 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PrescriptionData | null>(null);
-  const [mode, setMode] = useState<"ai" | "demo">("demo");
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,42 +100,78 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
     cancelledRef.current = false;
 
     let extracted: PrescriptionData | null = null;
-    let resolvedMode: "ai" | "demo" = "demo";
+    let failureReason: string | null = null;
 
     try {
       const { base64, mimeType } = dataUrlToBase64(dataUrl);
+
+      // Step 1: Run OCR on the image to extract text (more reliable than vision-only).
+      let ocrText = "";
+      if (!isPdf) {
+        ocrText = await extractTextFromImage(dataUrl);
+      }
+
+      // Step 2: Validate OCR text — reject if not a prescription.
+      if (!isPdf && ocrText) {
+        const validation = validatePrescription(ocrText);
+        if (!validation.isValid) {
+          failureReason = "not-a-prescription";
+          setIsProcessing(false);
+          setError(validation.reason || "This does not appear to be a valid prescription.");
+          return;
+        }
+      }
+
+      // Step 3: Send to AI (with OCR text if available, else image).
       const res = await fetch("/api/prescription-analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileBase64: base64, mimeType }),
+        body: JSON.stringify({ fileBase64: base64, mimeType, ocrText }),
       });
-      const json = (await res.json()) as { available: boolean; raw?: string };
-      if (json.available && json.raw && !cancelledRef.current) {
+      const json = (await res.json()) as {
+        available: boolean;
+        raw?: string;
+        reason?: string;
+      };
+
+      if (cancelledRef.current) return;
+
+      if (json.available && json.raw) {
         const parsed = safeParseJSON(json.raw);
         if (parsed) {
           const normalized = normalizePrescription(parsed);
-          // Only accept AI output if it actually found medicines.
-          if (normalized.medicines.length > 0) {
+          if (
+            normalized.isPrescription &&
+            (normalized.medicines.length > 0 ||
+              normalized.prescriptionSummary !== "Not clearly mentioned")
+          ) {
             extracted = normalized;
-            resolvedMode = "ai";
+          } else {
+            failureReason = "not-a-prescription";
           }
+        } else {
+          failureReason = "parse-error";
         }
+      } else {
+        failureReason = json.reason ?? "unavailable";
       }
     } catch {
-      /* fall through to demo */
+      failureReason = "network";
     }
 
     if (cancelledRef.current) return;
 
-    if (!extracted) {
-      extracted = demoPrescription();
-      resolvedMode = "demo";
+    if (extracted) {
+      setData(extracted);
+      setSelected(new Set(extracted.medicines.map((_, i) => i)));
+      saveUserData("prescriptions", { ...extracted, analyzedAt: new Date().toISOString(), moduleName: "Prescription Scanner" }, "Prescription Scanner");
+      setIsProcessing(false);
+      return;
     }
 
-    setData(extracted);
-    setMode(resolvedMode);
-    setSelected(new Set(extracted.medicines.map((_, i) => i)));
+    // NEVER fabricate prescription data. Show an honest, specific message.
     setIsProcessing(false);
+    setError(messageForFailure(failureReason));
   };
 
   const toggle = (i: number) => {
@@ -129,7 +187,6 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
     setIsPdf(false);
     setFileName("");
     setData(null);
-    setMode("demo");
     setSelected(new Set());
     setError(null);
     setIsProcessing(false);
@@ -301,7 +358,7 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
                   Extraction Complete
                 </SectionTitle>
                 <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/80">
-                  {mode === "ai" ? "AI Mode" : "AI Demo Mode"}
+                  AI Mode
                 </span>
               </div>
               <button
@@ -312,13 +369,6 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
                 <X className="h-4 w-4" /> Cancel Scan
               </button>
             </div>
-
-            {mode === "demo" && (
-              <p className="mb-4 rounded-lg bg-white/5 p-3 text-xs text-white/60">
-                Showing sample/demo output. Connect an Anthropic API key to extract from your real
-                prescription.
-              </p>
-            )}
 
             {/* Summary */}
             <div className="mb-4 rounded-lg bg-white/5 p-3">

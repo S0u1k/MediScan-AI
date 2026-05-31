@@ -9,7 +9,7 @@ const quickAddOptions = [100, 250, 500];
 
 export function WaterIntake() {
   const [intake, setIntake] = useState(0);
-  const [goal, setGoal] = useState(2500);
+  const [goal, setGoal] = useState(5000);
   const [weekly, setWeekly] = useState<{ day: string; amount: number; goal: number }[]>([]);
 
   useEffect(() => {

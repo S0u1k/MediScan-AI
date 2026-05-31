@@ -7,12 +7,14 @@ import {
   classifyBodyPart,
   detectBodyRegion,
   loadImage,
+  looksLikeXray,
   validateImageFile,
   XRAY_BODY_PARTS,
   type BoundingBox,
   type XRayResult,
 } from "@/lib/xray";
 import { GlassButton, GlassCard, SectionTitle } from "./ui";
+import { saveUserData } from "@/lib/firestoreService";
 
 function dataUrlToBase64(dataUrl: string): { base64: string; mimeType: string } {
   const [meta, data] = dataUrl.split(",");
@@ -119,22 +121,12 @@ export function XRayAnalyzer() {
       const img = await loadImage(imageSrc);
       if (cancelledRef.current) return;
 
-      // 2. Local canvas detection (always runs, gives the bounding box).
-      const detection = detectBodyRegion(img);
-      const local = classifyBodyPart(fileName, img, detection.box);
+      const { base64, mimeType } = dataUrlToBase64(imageSrc);
 
-      // 3. Try the server (Claude) route; fall back to local demo on any issue.
-      let finalResult: XRayResult = {
-        bodyPart: local.bodyPart,
-        confidence: local.confidence,
-        box: detection.box,
-        boxFound: detection.found,
-        explanation: local.explanation,
-        mode: "demo",
-      };
-
+      // 2. Ask the AI route to both verify it's an X-ray AND classify it.
+      let aiResult: XRayResult | null = null;
+      let aiSaysNotXray = false;
       try {
-        const { base64, mimeType } = dataUrlToBase64(imageSrc);
         const res = await fetch("/api/xray-analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -143,6 +135,7 @@ export function XRayAnalyzer() {
         const data = (await res.json()) as {
           available: boolean;
           result?: {
+            isXray?: boolean;
             bodyPart?: string;
             confidence?: number;
             boundingBox?: unknown;
@@ -151,44 +144,98 @@ export function XRayAnalyzer() {
         };
         if (data.available && data.result && !cancelledRef.current) {
           const r = data.result;
-          const aiPart =
-            r.bodyPart && (XRAY_BODY_PARTS as readonly string[]).includes(r.bodyPart)
-              ? r.bodyPart
-              : local.bodyPart;
-          finalResult = {
-            bodyPart: aiPart,
-            confidence:
-              typeof r.confidence === "number"
-                ? Math.max(0, Math.min(100, Math.round(r.confidence)))
-                : local.confidence,
-            // Prefer the AI box when valid, else the local detection box.
-            box: isValidBox(r.boundingBox) ? r.boundingBox : detection.box,
-            boxFound: isValidBox(r.boundingBox) ? true : detection.found,
-            explanation: r.explanation || local.explanation,
-            mode: "ai",
-          };
+          if (r.isXray === false) {
+            aiSaysNotXray = true;
+          } else {
+            const detection = detectBodyRegion(img);
+            const aiPart =
+              r.bodyPart && (XRAY_BODY_PARTS as readonly string[]).includes(r.bodyPart)
+                ? r.bodyPart
+                : "Other";
+            aiResult = {
+              bodyPart: aiPart,
+              confidence:
+                typeof r.confidence === "number"
+                  ? Math.max(0, Math.min(100, Math.round(r.confidence)))
+                  : 80,
+              box: isValidBox(r.boundingBox) ? r.boundingBox : detection.box,
+              boxFound: isValidBox(r.boundingBox) ? true : detection.found,
+              explanation: r.explanation || "Identified from the X-ray image.",
+              mode: "ai",
+            };
+          }
         }
       } catch {
-        /* keep local demo result */
+        /* network/AI error — fall through to local heuristic */
       }
 
       if (cancelledRef.current) return;
-      setResult(finalResult);
 
-      const record: XRayAnalysis = {
-        id: Date.now().toString(),
-        bodyPart: finalResult.bodyPart,
-        confidence: finalResult.confidence,
-        box: finalResult.box,
-        createdAt: new Date().toISOString(),
+      // 3. The AI explicitly said this is not an X-ray → reject, do not guess.
+      if (aiSaysNotXray) {
+        setIsProcessing(false);
+        setError(
+          "This image does not appear to be an X-ray. Please upload a genuine X-ray / radiograph image."
+        );
+        return;
+      }
+
+      // 4. If the AI gave a valid classification, use it — but reject low confidence.
+      if (aiResult) {
+        if (aiResult.confidence < 70) {
+          setIsProcessing(false);
+          setError("This image does not appear to be a clear X-ray. The AI confidence is too low. Please upload a valid X-ray image.");
+          return;
+        }
+        setResult(aiResult);
+        persistHistory(aiResult);
+        saveUserData("xrayScans", { bodyPart: aiResult.bodyPart, confidence: aiResult.confidence, explanation: aiResult.explanation, mode: aiResult.mode, analyzedAt: new Date().toISOString() }, "X-Ray Analyzer");
+        setIsProcessing(false);
+        return;
+      }
+
+      // 5. No AI available — use the local heuristic. First gate on whether the
+      //    image even looks like an X-ray (near-monochrome). Reject colorful
+      //    photos instead of fabricating a body part.
+      const likeness = looksLikeXray(img);
+      if (!likeness.isXray) {
+        setIsProcessing(false);
+        setError(
+          "This image does not appear to be an X-ray (it looks like a regular color photo). Please upload a genuine X-ray image."
+        );
+        return;
+      }
+
+      const detection = detectBodyRegion(img);
+      const local = classifyBodyPart(fileName, img, detection.box);
+      const localResult: XRayResult = {
+        bodyPart: local.bodyPart,
+        confidence: local.confidence,
+        box: detection.box,
+        boxFound: detection.found,
+        explanation: `${local.explanation} (Estimated on-device; connect an AI key for a verified result.)`,
+        mode: "demo",
       };
-      storageService.saveXRayAnalysis(record);
-      setHistory(storageService.getXRayAnalyses());
+      setResult(localResult);
+      persistHistory(localResult);
+      saveUserData("xrayScans", { bodyPart: localResult.bodyPart, confidence: localResult.confidence, explanation: localResult.explanation, mode: localResult.mode, analyzedAt: new Date().toISOString() }, "X-Ray Analyzer");
+      setIsProcessing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed. Please try another image.");
-    } finally {
-      if (!cancelledRef.current) setIsProcessing(false);
+      setIsProcessing(false);
     }
+  };
+
+  const persistHistory = (r: XRayResult) => {
+    const record: XRayAnalysis = {
+      id: Date.now().toString(),
+      bodyPart: r.bodyPart,
+      confidence: r.confidence,
+      box: r.box,
+      createdAt: new Date().toISOString(),
+    };
+    storageService.saveXRayAnalysis(record);
+    setHistory(storageService.getXRayAnalyses());
   };
 
   // Full reset to the initial upload state.

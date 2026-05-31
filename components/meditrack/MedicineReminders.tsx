@@ -20,6 +20,7 @@ import {
   type MedicineFoodTiming,
   type MedicineSlot,
 } from "@/lib/storage";
+import { saveUserData } from "@/lib/firestoreService";
 import { GlassButton, GlassCard, GlassInput, StatTile } from "./ui";
 
 const SLOTS: { id: MedicineSlot; label: string; Icon: typeof Sun }[] = [
@@ -143,6 +144,7 @@ export function MedicineReminders() {
         status: "pending",
       };
       persist([...medicines, medicine]);
+      saveUserData("medicineReminders", { ...medicine, savedAt: new Date().toISOString() }, "Medicine Reminders");
     }
     setShowForm(false);
     setEditingId(null);

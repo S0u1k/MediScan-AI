@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Activity, Flame, Footprints, Heart, Minus, Moon, TrendingDown, TrendingUp } from "lucide-react";
 import { storageService, type HealthStat } from "@/lib/storage";
+import { saveUserData } from "@/lib/firestoreService";
 import { BarChart, GlassCard, GlassInput, SectionTitle } from "./ui";
 
 const todayKey = () => new Date().toISOString().split("T")[0];
@@ -30,6 +31,7 @@ export function HealthStats() {
     const updated = { ...today, [field]: value };
     setToday(updated);
     storageService.updateHealthStat(updated);
+    saveUserData("smartwatchHealth", { ...updated, savedAt: new Date().toISOString() }, "Health Stats");
     setStats((prev) => {
       const others = prev.filter((s) => s.date !== updated.date);
       return [...others, updated];

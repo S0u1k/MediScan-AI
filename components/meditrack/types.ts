@@ -3,9 +3,11 @@ export type DashboardTab =
   | "medicine"
   | "scanner"
   | "xray"
+  | "lab"
   | "bmi"
   | "water"
-  | "stats"
-  | "reports"
-  | "sos"
-  | "chat";
+  | "emergency"
+  | "chat"
+  | "your-report"
+  | "follow-up"
+  | "contact";

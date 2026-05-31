@@ -4,15 +4,20 @@ import { useEffect, useState } from "react";
 import { Activity, ArrowRight, Bone, Droplets, Heart, Pill, ScanLine, Sparkles } from "lucide-react";
 import { storageService, type UserProfile } from "@/lib/storage";
 import { GlassCard } from "./ui";
+import { DataExport } from "./DataExport";
 import type { DashboardTab } from "./types";
 
 interface DashboardOverviewProps {
   user: UserProfile;
   onNavigate: (tab: DashboardTab) => void;
+  onUpdateProfile?: (profile: UserProfile) => void;
 }
 
-export function DashboardOverview({ user, onNavigate }: DashboardOverviewProps) {
+export function DashboardOverview({ user, onNavigate, onUpdateProfile }: DashboardOverviewProps) {
   const [medicineStats, setMedicineStats] = useState({ taken: 0, total: 0, percentage: 0 });
+  const [displayName, setDisplayName] = useState(user.name);
+  const [draftName, setDraftName] = useState(user.name);
+  const [editingName, setEditingName] = useState(false);
   const [water, setWater] = useState({ amount: 0, goal: 2500 });
 
   useEffect(() => {
@@ -20,6 +25,22 @@ export function DashboardOverview({ user, onNavigate }: DashboardOverviewProps) 
     const today = storageService.getTodayWaterLog();
     if (today) setWater({ amount: today.amount, goal: today.goal });
   }, []);
+
+  useEffect(() => {
+    setDisplayName(user.name);
+    setDraftName(user.name);
+  }, [user.name]);
+
+  const saveName = () => {
+    const trimmed = draftName.trim();
+    if (!trimmed) return;
+    setDisplayName(trimmed);
+    setEditingName(false);
+
+    const updatedProfile: UserProfile = { ...user, name: trimmed };
+    storageService.saveUserProfile(updatedProfile);
+    onUpdateProfile?.(updatedProfile);
+  };
 
   const greeting =
     new Date().getHours() < 12 ? "Morning" : new Date().getHours() < 18 ? "Afternoon" : "Evening";
@@ -35,7 +56,7 @@ export function DashboardOverview({ user, onNavigate }: DashboardOverviewProps) 
     { label: "Add Medicine", tab: "medicine", Icon: Pill },
     { label: "Scan Rx", tab: "scanner", Icon: ScanLine },
     { label: "X-Ray Analyzer", tab: "xray", Icon: Bone },
-    { label: "Log Water", tab: "water", Icon: Droplets },
+    { label: "Your Report", tab: "your-report", Icon: Droplets },
   ];
 
   const medicines = storageService.getMedicines();
@@ -50,10 +71,47 @@ export function DashboardOverview({ user, onNavigate }: DashboardOverviewProps) 
       <GlassCard className="liquid-glass-strong">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <h2 className="mb-2 text-2xl font-medium text-white">
-              Good {greeting}, {user.name}
-            </h2>
+            <div className="mb-3 flex flex-wrap items-center gap-3">
+              <h2 className="text-2xl font-medium text-white">Good {greeting}, {displayName}</h2>
+              <button
+                type="button"
+                onClick={() => setEditingName(true)}
+                className="rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 transition hover:bg-white/20"
+              >
+                Change Name
+              </button>
+            </div>
             <p className="text-white/60">You&apos;re doing great! Keep up with your health goals today.</p>
+
+            {editingName ? (
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <input
+                  value={draftName}
+                  onChange={(event) => setDraftName(event.target.value)}
+                  className="min-w-0 rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/40 outline-none ring-1 ring-white/10 transition focus:ring-white/30"
+                  placeholder="Enter new name"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={saveName}
+                    className="rounded-xl bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/20"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingName(false);
+                      setDraftName(displayName);
+                    }}
+                    className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/20"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
           <button
             onClick={() => onNavigate("chat")}
@@ -148,6 +206,8 @@ export function DashboardOverview({ user, onNavigate }: DashboardOverviewProps) 
             : " Try to improve your medication consistency for better health outcomes."}
         </p>
       </GlassCard>
+
+      <DataExport />
     </div>
   );
 }

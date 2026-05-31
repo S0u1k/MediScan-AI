@@ -48,6 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const requestProtectedAction = useCallback(
     (action?: () => void, trigger?: HTMLElement | null) => {
+      // While Firebase hasn't reported auth state yet, don't act on stale data.
+      if (!authReady) return;
       const decision = decideProtectedAction(session);
       if (decision.type === "proceed") {
         action?.();
@@ -55,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         openModal(trigger);
       }
     },
-    [session, openModal]
+    [session, authReady, openModal]
   );
 
   // After a successful authentication, close the modal and route to /dashboard.
@@ -90,6 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleSignOut = useCallback(async (): Promise<void> => {
     await signOut();
+    // Clear stale local state so the landing page shows Guest User cleanly.
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("mediscan_user_profile");
+    }
     router.push("/");
   }, [signOut, router]);
 
@@ -97,8 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       authReady,
-      identityLabel: resolveUserIdentity(session),
-      isAuthenticated: session.kind === "authenticated",
+      // Until Firebase confirms auth state, always show "Guest User" to avoid
+      // flashing a stale user ID from a previous session.
+      identityLabel: authReady ? resolveUserIdentity(session) : "Guest User",
+      isAuthenticated: authReady && session.kind === "authenticated",
       isModalOpen: isOpen,
       closeModal,
       signIn: handleSignIn,

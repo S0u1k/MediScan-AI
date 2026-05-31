@@ -5,9 +5,6 @@
 .yarn/*
 .pnpm-store/
 
-# ===== Reference material (extracted ZIP, not part of the app) =====
-/reference-medi-track
-
 # ===== Next.js / build output =====
 /.next/
 /out/

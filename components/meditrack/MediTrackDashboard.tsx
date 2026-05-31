@@ -6,31 +6,31 @@ import { motion } from "framer-motion";
 import {
   Activity,
   AlertTriangle,
-  BarChart3,
+  Bell,
   Bone,
   Calculator,
   Droplets,
   Home,
   LogOut,
+  Mail,
   Menu,
   MessageSquare,
   Pill,
   ScanLine,
+  TestTube,
   X,
 } from "lucide-react";
 import { storageService, type UserProfile } from "@/lib/storage";
-import { DashboardOverview } from "./DashboardOverview";
 import { FeatureSkeleton } from "./FeatureSkeleton";
 import type { DashboardTab } from "./types";
 
-/**
- * Heavy feature modules are lazy-loaded with next/dynamic so they are NOT in
- * the initial dashboard bundle. They download/parse only when their tab opens.
- * DashboardOverview (the default view) stays eagerly imported so the first
- * paint is instant.
- */
 const skeleton = (label: string) => () => <FeatureSkeleton label={label} />;
 
+// Lazy-loaded merged feature modules
+const MergedOverview = dynamic(
+  () => import("./MergedOverview").then((m) => m.MergedOverview),
+  { loading: skeleton("Loading overview…"), ssr: false }
+);
 const MedicineReminders = dynamic(
   () => import("./MedicineReminders").then((m) => m.MedicineReminders),
   { loading: skeleton("Loading medicine reminders…"), ssr: false }
@@ -47,50 +47,57 @@ const BMICalculator = dynamic(
   () => import("./BMICalculator").then((m) => m.BMICalculator),
   { loading: skeleton("Loading BMI calculator…"), ssr: false }
 );
-const WaterIntake = dynamic(() => import("./WaterIntake").then((m) => m.WaterIntake), {
-  loading: skeleton("Loading hydration tracker…"),
-  ssr: false,
-});
-const HealthStats = dynamic(() => import("./HealthStats").then((m) => m.HealthStats), {
-  loading: skeleton("Loading health statistics…"),
-  ssr: false,
-});
-const ReportsAnalytics = dynamic(
-  () => import("./ReportsAnalytics").then((m) => m.ReportsAnalytics),
-  { loading: skeleton("Loading reports & analytics…"), ssr: false }
+const WaterIntake = dynamic(
+  () => import("./WaterIntake").then((m) => m.WaterIntake),
+  { loading: skeleton("Loading hydration tracker…"), ssr: false }
 );
-const EmergencySOS = dynamic(() => import("./EmergencySOS").then((m) => m.EmergencySOS), {
-  loading: skeleton("Loading emergency tools…"),
-  ssr: false,
-});
-const AIChatbot = dynamic(() => import("./AIChatbot").then((m) => m.AIChatbot), {
-  loading: skeleton("Loading AI assistant…"),
-  ssr: false,
-});
+const MergedEmergency = dynamic(
+  () => import("./MergedEmergency").then((m) => m.MergedEmergency),
+  { loading: skeleton("Loading emergency tools…"), ssr: false }
+);
+const AIChatbot = dynamic(
+  () => import("./AIChatbot").then((m) => m.AIChatbot),
+  { loading: skeleton("Loading AI assistant…"), ssr: false }
+);
+const MergedReports = dynamic(
+  () => import("./MergedReports").then((m) => m.MergedReports),
+  { loading: skeleton("Loading reports…"), ssr: false }
+);
+const LabReportAnalyzer = dynamic(
+  () => import("./LabReportAnalyzer").then((m) => m.LabReportAnalyzer),
+  { loading: skeleton("Loading lab report analyzer…"), ssr: false }
+);
+const FollowUpManager = dynamic(
+  () => import("./FollowUpManager").then((m) => m.FollowUpManager),
+  { loading: skeleton("Loading follow-up manager…"), ssr: false }
+);
 const PatientOnboarding = dynamic(
   () => import("./PatientOnboarding").then((m) => m.PatientOnboarding),
   { loading: skeleton("Loading onboarding…"), ssr: false }
 );
+const ContactUs = dynamic(
+  () => import("./ContactUs").then((m) => m.ContactUs),
+  { loading: skeleton("Loading contact page…"), ssr: false }
+);
 
 interface MediTrackDashboardProps {
-  /** Email of the authenticated Firebase user. */
   email: string;
-  /** Optional display name. */
   name?: string;
   onLogout: () => void;
 }
 
-const navItems: { id: DashboardTab; label: string; Icon: typeof Home }[] = [
+const navItems: { id: DashboardTab; label: string; Icon: typeof Home; dot?: boolean }[] = [
   { id: "overview", label: "Overview", Icon: Home },
-  { id: "medicine", label: "Medicine", Icon: Pill },
+  { id: "medicine", label: "Medicines", Icon: Pill },
   { id: "scanner", label: "Scan Rx", Icon: ScanLine },
   { id: "xray", label: "X-Ray Analyzer", Icon: Bone },
+  { id: "lab", label: "Lab Reports", Icon: TestTube },
   { id: "bmi", label: "BMI", Icon: Calculator },
   { id: "water", label: "Hydration", Icon: Droplets },
-  { id: "stats", label: "Statistics", Icon: BarChart3 },
-  { id: "reports", label: "Reports", Icon: BarChart3 },
-  { id: "sos", label: "Emergency", Icon: AlertTriangle },
+  { id: "emergency", label: "Emergency", Icon: AlertTriangle, dot: true },
   { id: "chat", label: "AI Assistant", Icon: MessageSquare },
+  { id: "your-report", label: "Your Report", Icon: Activity },
+  { id: "follow-up", label: "Follow-Ups", Icon: Bell },
 ];
 
 export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboardProps) {
@@ -100,7 +107,6 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // Read the cached profile from localStorage once (no duplicate reads).
     const p = storageService.getOrCreateUserProfile(email, name);
     setProfile(p);
     setShowOnboarding(!p.onboardingComplete);
@@ -123,7 +129,6 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
   };
 
   if (!profile) {
-    // Brief, since localStorage read is synchronous; matches dashboard layout.
     return (
       <div className="relative z-10 flex min-h-screen items-center justify-center text-white/60">
         Preparing your health dashboard…
@@ -142,40 +147,49 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
   const renderContent = () => {
     switch (activeTab) {
       case "overview":
-        return <DashboardOverview user={profile} onNavigate={setActiveTab} />;
+        return <MergedOverview user={profile} onNavigate={setActiveTab} onUpdateProfile={setProfile} />;
       case "medicine":
         return <MedicineReminders />;
       case "scanner":
         return <PrescriptionScanner onMedicinesExtracted={() => setActiveTab("medicine")} />;
       case "xray":
         return <XRayAnalyzer />;
+      case "lab":
+        return <LabReportAnalyzer />;
       case "bmi":
         return <BMICalculator />;
       case "water":
         return <WaterIntake />;
-      case "stats":
-        return <HealthStats />;
-      case "reports":
-        return <ReportsAnalytics />;
-      case "sos":
-        return <EmergencySOS user={profile} />;
+      case "emergency":
+        return <MergedEmergency user={profile} />;
       case "chat":
         return <AIChatbot user={profile} />;
+      case "your-report":
+        return <MergedReports />;
+      case "follow-up":
+        return <FollowUpManager />;
+      case "contact":
+        return <ContactUs />;
       default:
-        return <DashboardOverview user={profile} onNavigate={setActiveTab} />;
+        return <MergedOverview user={profile} onNavigate={setActiveTab} />;
     }
   };
 
   const activeLabel =
     activeTab === "overview"
       ? `Welcome, ${profile.name}`
-      : navItems.find((i) => i.id === activeTab)?.label || activeTab;
+      : activeTab === "contact"
+      ? "Contact Us"
+      : navItems.find((i) => i.id === activeTab)?.label ?? activeTab;
 
   return (
     <div className="relative z-10 flex min-h-screen">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
 
       {/* Sidebar */}
@@ -185,6 +199,7 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
         }`}
       >
         <div className="liquid-glass-strong flex h-full flex-col rounded-[2rem] p-4">
+          {/* Logo */}
           <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
@@ -201,13 +216,14 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
             </button>
           </div>
 
+          {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto">
             <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-white/40">
               Main Menu
             </p>
             {navItems.map((item) => (
               <button
-                key={`${item.id}-${item.label}`}
+                key={item.id}
                 onClick={() => {
                   setActiveTab(item.id);
                   setSidebarOpen(false);
@@ -220,15 +236,33 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
               >
                 <item.Icon className="h-5 w-5" strokeWidth={1.5} />
                 {item.label}
-                {item.id === "sos" && (
-                  <span className="ml-auto h-2 w-2 animate-pulse rounded-full bg-white/70" />
+                {item.dot && (
+                  <span className="ml-auto h-2 w-2 animate-pulse rounded-full bg-red-400" />
                 )}
               </button>
             ))}
           </nav>
 
-          <div className="border-t border-white/10 pt-4">
-            <div className="mb-4 flex items-center gap-3">
+          {/* Bottom section */}
+          <div className="border-t border-white/10 pt-4 space-y-2">
+            {/* Contact Us button */}
+            <button
+              onClick={() => {
+                setActiveTab("contact");
+                setSidebarOpen(false);
+              }}
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                activeTab === "contact"
+                  ? "bg-white/15 text-white"
+                  : "text-white/60 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <Mail className="h-4 w-4" />
+              Contact Us
+            </button>
+
+            {/* User profile block */}
+            <div className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
                 <span className="text-sm font-semibold text-white">
                   {profile.name.charAt(0).toUpperCase()}
@@ -239,6 +273,8 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
                 <p className="truncate text-xs text-white/50">{profile.email}</p>
               </div>
             </div>
+
+            {/* Logout */}
             <button
               onClick={onLogout}
               className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
@@ -249,7 +285,7 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
         </div>
       </aside>
 
-      {/* Main */}
+      {/* Main content */}
       <main className="relative z-10 flex min-h-screen flex-1 flex-col">
         <header className="sticky top-0 z-30 px-4 py-4 lg:px-6">
           <div className="liquid-glass flex items-center justify-between rounded-2xl px-4 py-3">
@@ -282,8 +318,9 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
           transition={{ duration: 0.35, ease: "easeOut" }}
           className="flex-1 overflow-y-auto p-4 lg:p-6"
         >
-          {/* Suspense wrapper provides a skeleton for whichever lazy tab opens. */}
-          <Suspense fallback={<FeatureSkeleton label="Loading…" />}>{renderContent()}</Suspense>
+          <Suspense fallback={<FeatureSkeleton label="Loading…" />}>
+            {renderContent()}
+          </Suspense>
         </motion.div>
       </main>
     </div>
