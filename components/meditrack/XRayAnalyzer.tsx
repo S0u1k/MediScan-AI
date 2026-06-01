@@ -14,7 +14,7 @@ import {
   type XRayResult,
 } from "@/lib/xray";
 import { GlassButton, GlassCard, SectionTitle } from "./ui";
-import { saveUserData } from "@/lib/firestoreService";
+import { saveUserData, saveActivityLog } from "@/lib/firestoreService";
 
 function dataUrlToBase64(dataUrl: string): { base64: string; mimeType: string } {
   const [meta, data] = dataUrl.split(",");
@@ -190,6 +190,7 @@ export function XRayAnalyzer() {
         setResult(aiResult);
         persistHistory(aiResult);
         saveUserData("xrayScans", { bodyPart: aiResult.bodyPart, confidence: aiResult.confidence, explanation: aiResult.explanation, mode: aiResult.mode, analyzedAt: new Date().toISOString() }, "X-Ray Analyzer");
+        saveActivityLog("xray_analyzed", "X-Ray Analyzer", `X-ray analyzed: ${aiResult.bodyPart} (${aiResult.confidence}% confidence)`, { bodyPart: aiResult.bodyPart, confidence: aiResult.confidence, mode: "AI Mode" });
         setIsProcessing(false);
         return;
       }
@@ -275,7 +276,7 @@ export function XRayAnalyzer() {
 
       {!imageSrc && (
         <GlassCard>
-          <div className="rounded-xl border-2 border-dashed border-white/15 p-8 text-center transition hover:border-white/30">
+          <div className="rounded-xl border-2 border-dashed border-white/15 p-8 text-center transition-all duration-300 ease-out hover:border-white/30 hover:bg-white/10 hover:scale-[1.01]">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-white/10">
               <ScanLine className="h-8 w-8 text-white/70" strokeWidth={1.25} />
             </div>
@@ -312,7 +313,7 @@ export function XRayAnalyzer() {
             <button
               onClick={reset}
               aria-label="Cancel scan"
-              className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 outline-none transition hover:scale-105 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
+              className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 outline-none transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
             >
               <X className="h-4 w-4" /> Cancel Scan
             </button>
@@ -334,11 +335,11 @@ export function XRayAnalyzer() {
           {result ? (
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-white/5 p-4">
+                <div className="rounded-xl bg-white/5 p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
                   <p className="text-xs text-white/50">Detected Body Part</p>
                   <p className="text-2xl font-medium text-white">{result.bodyPart}</p>
                 </div>
-                <div className="rounded-xl bg-white/5 p-4">
+                <div className="rounded-xl bg-white/5 p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
                   <p className="text-xs text-white/50">Confidence</p>
                   <p className="text-2xl font-medium text-white">{result.confidence}%</p>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
@@ -348,7 +349,7 @@ export function XRayAnalyzer() {
                     />
                   </div>
                 </div>
-                <div className="rounded-xl bg-white/5 p-4">
+                <div className="rounded-xl bg-white/5 p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
                   <p className="text-xs text-white/50">Bounding Box</p>
                   <p className="text-base font-medium text-white">
                     {result.boxFound ? "Region detected" : "Estimated (centered)"}
@@ -356,7 +357,7 @@ export function XRayAnalyzer() {
                 </div>
               </div>
 
-              <div className="rounded-xl bg-white/5 p-4">
+              <div className="rounded-xl bg-white/5 p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
                 <p className="text-xs text-white/50">Explanation</p>
                 <p className="text-sm text-white/80">{result.explanation}</p>
               </div>
@@ -381,7 +382,7 @@ export function XRayAnalyzer() {
               <button
                 onClick={reset}
                 aria-label="Cancel scan"
-                className="flex items-center justify-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-sm text-white/80 outline-none transition hover:scale-105 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
+                className="flex items-center justify-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-sm text-white/80 outline-none transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
               >
                 <X className="h-4 w-4" /> {isProcessing ? "Cancel" : "Cancel Scan"}
               </button>
@@ -397,7 +398,7 @@ export function XRayAnalyzer() {
           </SectionTitle>
           <div className="mt-4 space-y-2">
             {history.slice(0, 5).map((h) => (
-              <div key={h.id} className="flex items-center justify-between rounded-lg bg-white/5 p-3">
+              <div key={h.id} className="flex items-center justify-between rounded-lg bg-white/5 p-3 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
                 <div>
                   <p className="text-sm font-medium text-white">{h.bodyPart}</p>
                   <p className="text-xs text-white/50">{new Date(h.createdAt).toLocaleString()}</p>

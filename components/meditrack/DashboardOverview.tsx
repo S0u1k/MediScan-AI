@@ -76,13 +76,13 @@ export function DashboardOverview({ user, onNavigate, onUpdateProfile }: Dashboa
               <button
                 type="button"
                 onClick={() => setEditingName(true)}
-                className="rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 transition hover:bg-white/20"
+                className="rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15"
               >
                 Change Name
               </button>
             </div>
             <p className="text-white/60">You&apos;re doing great! Keep up with your health goals today.</p>
-
+ 
             {editingName ? (
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <input
@@ -95,7 +95,7 @@ export function DashboardOverview({ user, onNavigate, onUpdateProfile }: Dashboa
                   <button
                     type="button"
                     onClick={saveName}
-                    className="rounded-xl bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/20"
+                    className="rounded-xl bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-200 transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-emerald-500/25"
                   >
                     Save
                   </button>
@@ -105,7 +105,7 @@ export function DashboardOverview({ user, onNavigate, onUpdateProfile }: Dashboa
                       setEditingName(false);
                       setDraftName(displayName);
                     }}
-                    className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/20"
+                    className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white/80 transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15"
                   >
                     Cancel
                   </button>
@@ -115,16 +115,16 @@ export function DashboardOverview({ user, onNavigate, onUpdateProfile }: Dashboa
           </div>
           <button
             onClick={() => onNavigate("chat")}
-            className="liquid-glass glass-glow inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white outline-none transition focus-visible:ring-2 focus-visible:ring-white/40 active:scale-95"
+            className="liquid-glass glass-glow inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-white/40 hover:scale-105 active:scale-95 hover:bg-white/15"
           >
             <Sparkles className="h-4 w-4" /> Talk to AI Assistant
           </button>
         </div>
       </GlassCard>
-
+ 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className="liquid-glass rounded-[1.25rem] p-4">
+          <div key={s.label} className="liquid-glass rounded-[1.25rem] p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
               <s.Icon className="h-5 w-5 text-white" strokeWidth={1.5} />
             </div>
@@ -136,7 +136,7 @@ export function DashboardOverview({ user, onNavigate, onUpdateProfile }: Dashboa
           </div>
         ))}
       </div>
-
+ 
       <div className="grid gap-6 lg:grid-cols-2">
         <GlassCard>
           <h3 className="mb-3 text-base font-medium text-white">Quick Actions</h3>
@@ -145,7 +145,7 @@ export function DashboardOverview({ user, onNavigate, onUpdateProfile }: Dashboa
               <button
                 key={a.label}
                 onClick={() => onNavigate(a.tab)}
-                className="flex items-center gap-3 rounded-xl bg-white/5 p-4 transition hover:bg-white/10"
+                className="flex items-center gap-3 rounded-xl bg-white/5 p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
                   <a.Icon className="h-5 w-5 text-white" strokeWidth={1.5} />

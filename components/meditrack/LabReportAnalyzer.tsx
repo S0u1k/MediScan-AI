@@ -5,7 +5,7 @@ import { AlertTriangle, FileText, Loader2, Send, TestTube, Upload, X } from "luc
 import { extractTextFromImage } from "@/lib/ocr/tesseract";
 import { validateLabReport } from "@/lib/ocr/validate";
 import { GlassButton, GlassCard, SectionTitle } from "./ui";
-import { saveUserData } from "@/lib/firestoreService";
+import { saveUserData, saveActivityLog } from "@/lib/firestoreService";
 
 interface LabResult {
   parameter: string;
@@ -98,6 +98,7 @@ export function LabReportAnalyzer() {
           setAnalysis(result); setMode("ai");
           saveHistory([result, ...loadHistory()]);
           saveUserData("labReports", { ...result, analyzedAt: new Date().toISOString() }, "Lab Report Analyzer");
+          saveActivityLog("lab_report_analyzed", "Lab Report Analyzer", `Lab report analyzed: ${result.results.length} value(s) extracted`, { resultCount: result.results.length, abnormalCount: result.abnormalFindings.length });
         } catch {
           setError("Could not parse the AI response. Please try again with a clearer image.");
           setMode("rejected");
@@ -133,7 +134,7 @@ export function LabReportAnalyzer() {
 
       {!file && (
         <GlassCard>
-          <div className="rounded-xl border-2 border-dashed border-white/15 p-8 text-center hover:border-white/30 transition">
+          <div className="rounded-xl border-2 border-dashed border-white/15 p-8 text-center transition-all duration-300 ease-out hover:border-white/30 hover:bg-white/10 hover:scale-[1.01]">
             <TestTube className="mx-auto mb-4 h-12 w-12 text-white/50" strokeWidth={1.25} />
             <p className="mb-2 font-medium text-white">Upload Lab Report</p>
             <p className="mb-6 text-sm text-white/50">PNG, JPG, WEBP, or PDF</p>
@@ -147,7 +148,7 @@ export function LabReportAnalyzer() {
         <GlassCard>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-base font-medium text-white">Preview</h3>
-            <button onClick={reset} className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 hover:bg-white/15 transition"><X className="h-4 w-4" /> Cancel</button>
+            <button onClick={reset} className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 hover:scale-105 active:scale-95 hover:bg-white/15 transition-all duration-300 ease-out"><X className="h-4 w-4" /> Cancel</button>
           </div>
           <div className="mb-4 flex justify-center rounded-xl bg-white/5 p-2 max-h-[300px] overflow-hidden">
             {file.includes("pdf") ? <FileText className="h-16 w-16 text-white/50" /> : <img src={file} alt="Lab report" className="max-h-[280px] object-contain rounded-lg" />}
@@ -171,12 +172,12 @@ export function LabReportAnalyzer() {
               <SectionTitle icon={<TestTube className="h-5 w-5 text-white" strokeWidth={1.5} />}>Lab Values</SectionTitle>
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/80">AI Mode</span>
-                <button onClick={reset} className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 hover:bg-white/15 transition"><X className="h-4 w-4" /> New Report</button>
+                <button onClick={reset} className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 hover:scale-105 active:scale-95 hover:bg-white/15 transition-all duration-300 ease-out"><X className="h-4 w-4" /> New Report</button>
               </div>
             </div>
             <div className="space-y-2">
               {analysis.results.map((r, i) => (
-                <div key={`${r.parameter}-${i}`} className="flex items-center justify-between rounded-lg bg-white/5 p-3">
+                <div key={`${r.parameter}-${i}`} className="flex items-center justify-between rounded-lg bg-white/5 p-3 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
                   <div><p className="text-sm font-medium text-white">{r.parameter}</p><p className="text-xs text-white/50">Normal: {r.normalRange}</p></div>
                   <div className="text-right"><p className="text-sm font-medium text-white">{r.value}</p><span className={`text-xs font-medium capitalize ${STATUS_COLOR[r.status] || "text-white/60"} ${STATUS_BG[r.status] || "bg-white/10"} rounded-full px-2 py-0.5`}>{r.status}</span></div>
                 </div>

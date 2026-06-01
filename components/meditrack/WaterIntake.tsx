@@ -111,7 +111,7 @@ export function WaterIntake() {
             <button
               key={amount}
               onClick={() => addWater(amount)}
-              className="rounded-lg bg-white/5 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10"
+              className="rounded-lg bg-white/5 px-4 py-2 text-sm font-medium text-white/80 transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15"
             >
               {amount}ml
             </button>

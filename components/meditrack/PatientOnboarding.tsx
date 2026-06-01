@@ -68,15 +68,15 @@ export function PatientOnboarding({ user, onComplete, onSkip }: PatientOnboardin
   const back = () => currentStep > 1 && setCurrentStep(currentStep - 1);
 
   const pill = (active: boolean) =>
-    `rounded-full px-4 py-2 text-sm font-medium transition ${
+    `rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${
       active ? "bg-white/20 text-white" : "bg-white/5 text-white/70 hover:bg-white/10"
     }`;
-
+ 
   const block = (active: boolean) =>
-    `rounded-xl p-3 text-sm font-medium transition ${
+    `rounded-xl p-3 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${
       active ? "bg-white/20 text-white" : "bg-white/5 text-white/70 hover:bg-white/10"
     }`;
-
+ 
   return (
     <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8">
       <div className="w-full max-w-2xl">
@@ -86,7 +86,7 @@ export function PatientOnboarding({ user, onComplete, onSkip }: PatientOnboardin
             Help us personalize your health experience, {user.name}
           </p>
         </div>
-
+ 
         {/* Progress */}
         <div className="mb-8 flex items-center justify-center gap-2">
           {steps.map((step, index) => (
@@ -107,10 +107,10 @@ export function PatientOnboarding({ user, onComplete, onSkip }: PatientOnboardin
             </div>
           ))}
         </div>
-
+ 
         <div className="liquid-glass-strong rounded-[2rem] p-6 md:p-8">
           <h2 className="mb-6 text-lg font-medium text-white">{steps[currentStep - 1].title}</h2>
-
+ 
           {currentStep === 1 && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -156,7 +156,7 @@ export function PatientOnboarding({ user, onComplete, onSkip }: PatientOnboardin
               </div>
             </div>
           )}
-
+ 
           {currentStep === 2 && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -203,7 +203,7 @@ export function PatientOnboarding({ user, onComplete, onSkip }: PatientOnboardin
               </div>
             </div>
           )}
-
+ 
           {currentStep === 3 && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -236,7 +236,7 @@ export function PatientOnboarding({ user, onComplete, onSkip }: PatientOnboardin
               </div>
             </div>
           )}
-
+ 
           {currentStep === 4 && (
             <div className="space-y-6">
               <div className="space-y-2">
@@ -257,8 +257,8 @@ export function PatientOnboarding({ user, onComplete, onSkip }: PatientOnboardin
                       key={l}
                       type="button"
                       onClick={() => update("activityLevel", l)}
-                      className={`flex w-full items-center justify-between rounded-xl p-4 text-left transition ${
-                        formData.activityLevel === l ? "bg-white/20 text-white" : "bg-white/5 text-white/70 hover:bg-white/10"
+                      className={`flex w-full items-center justify-between rounded-xl p-4 text-left transition-all duration-300 ease-out hover:scale-[1.01] hover:bg-white/10 ${
+                        formData.activityLevel === l ? "bg-white/20 text-white" : "bg-white/5 text-white/70"
                       }`}
                     >
                       <span className="font-medium">{l}</span>

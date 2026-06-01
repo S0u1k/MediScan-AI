@@ -228,10 +228,10 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
                   setActiveTab(item.id);
                   setSidebarOpen(false);
                 }}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ease-out ${
                   activeTab === item.id
                     ? "bg-white/15 text-white"
-                    : "text-white/60 hover:bg-white/10 hover:text-white"
+                    : "text-white/60 hover:bg-white/10 hover:translate-x-1 hover:text-white"
                 }`}
               >
                 <item.Icon className="h-5 w-5" strokeWidth={1.5} />
@@ -251,10 +251,10 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
                 setActiveTab("contact");
                 setSidebarOpen(false);
               }}
-              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ease-out ${
                 activeTab === "contact"
                   ? "bg-white/15 text-white"
-                  : "text-white/60 hover:bg-white/10 hover:text-white"
+                  : "text-white/60 hover:bg-white/10 hover:translate-x-1 hover:text-white"
               }`}
             >
               <Mail className="h-4 w-4" />
@@ -277,7 +277,7 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
             {/* Logout */}
             <button
               onClick={onLogout}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-white/60 transition-all duration-300 ease-out hover:bg-white/10 hover:translate-x-1 hover:text-white"
             >
               <LogOut className="h-4 w-4" /> Sign Out
             </button>

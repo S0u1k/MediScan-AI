@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { AlertTriangle, Camera, Check, FileText, Loader2, Pill, Plus, ScanLine, Upload, X } from "lucide-react";
 import { storageService, type Medicine, type MedicineSlot } from "@/lib/storage";
-import { saveUserData } from "@/lib/firestoreService";
+import { saveUserData, saveActivityLog } from "@/lib/firestoreService";
 import {
   normalizePrescription,
   safeParseJSON,
@@ -165,6 +165,7 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
       setData(extracted);
       setSelected(new Set(extracted.medicines.map((_, i) => i)));
       saveUserData("prescriptions", { ...extracted, analyzedAt: new Date().toISOString(), moduleName: "Prescription Scanner" }, "Prescription Scanner");
+      saveActivityLog("prescription_scanned", "Prescription Scanner", `Prescription analyzed: ${extracted.medicines.length} medicine(s) found`, { medicineCount: extracted.medicines.length, doctorName: extracted.doctorName });
       setIsProcessing(false);
       return;
     }
@@ -265,7 +266,7 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
 
       {!hasFile && (
         <GlassCard>
-          <div className="rounded-xl border-2 border-dashed border-white/15 p-8 text-center transition hover:border-white/30">
+          <div className="rounded-xl border-2 border-dashed border-white/15 p-8 text-center transition-all duration-300 ease-out hover:border-white/30 hover:bg-white/10 hover:scale-[1.01]">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-white/10">
               <FileText className="h-8 w-8 text-white/70" strokeWidth={1.25} />
             </div>
@@ -305,7 +306,7 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
             <button
               onClick={reset}
               aria-label="Cancel scan"
-              className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 outline-none transition hover:scale-105 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
+              className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 outline-none transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
             >
               <X className="h-4 w-4" /> Cancel Scan
             </button>
@@ -341,7 +342,7 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
             <button
               onClick={reset}
               aria-label="Cancel scan"
-              className="flex items-center justify-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-sm text-white/80 outline-none transition hover:scale-105 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
+              className="flex items-center justify-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-sm text-white/80 outline-none transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
             >
               <X className="h-4 w-4" /> {isProcessing ? "Cancel" : "Cancel Scan"}
             </button>
@@ -364,7 +365,7 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
               <button
                 onClick={reset}
                 aria-label="Cancel scan"
-                className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 outline-none transition hover:scale-105 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
+                className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 outline-none transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
               >
                 <X className="h-4 w-4" /> Cancel Scan
               </button>
@@ -401,7 +402,7 @@ export function PrescriptionScanner({ onMedicinesExtracted }: PrescriptionScanne
                   <button
                     key={i}
                     onClick={() => toggle(i)}
-                    className={`flex w-full items-start gap-4 rounded-xl p-4 text-left transition ${
+                    className={`flex w-full items-start gap-4 rounded-xl p-4 text-left transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl ${
                       selected.has(i) ? "bg-white/15 ring-1 ring-white/30" : "bg-white/5 hover:bg-white/10"
                     }`}
                   >

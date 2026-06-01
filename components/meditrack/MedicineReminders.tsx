@@ -20,7 +20,7 @@ import {
   type MedicineFoodTiming,
   type MedicineSlot,
 } from "@/lib/storage";
-import { saveUserData } from "@/lib/firestoreService";
+import { saveUserData, saveActivityLog } from "@/lib/firestoreService";
 import { GlassButton, GlassCard, GlassInput, StatTile } from "./ui";
 
 const SLOTS: { id: MedicineSlot; label: string; Icon: typeof Sun }[] = [
@@ -145,6 +145,7 @@ export function MedicineReminders() {
       };
       persist([...medicines, medicine]);
       saveUserData("medicineReminders", { ...medicine, savedAt: new Date().toISOString() }, "Medicine Reminders");
+      saveActivityLog("medicine_reminder_created", "Medicine Reminders", `Medicine reminder created: ${medicine.name}`, { name: medicine.name, dosage: medicine.dosage, slot: medicine.slot });
     }
     setShowForm(false);
     setEditingId(null);
@@ -209,7 +210,7 @@ export function MedicineReminders() {
                   key={s.id}
                   type="button"
                   onClick={() => setForm({ ...form, slot: s.id })}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${
                     form.slot === s.id ? "bg-white/20 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"
                   }`}
                 >
@@ -222,7 +223,7 @@ export function MedicineReminders() {
                   key={f}
                   type="button"
                   onClick={() => setForm({ ...form, foodTiming: f })}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${
                     form.foodTiming === f ? "bg-white/20 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"
                   }`}
                 >
@@ -239,7 +240,7 @@ export function MedicineReminders() {
           </div>
         )}
       </GlassCard>
-
+ 
       {/* Slot-based schedule */}
       {SLOTS.map((slot) => {
         const items = bySlot(slot.id);
@@ -252,7 +253,7 @@ export function MedicineReminders() {
               <h3 className="text-base font-medium text-white">{slot.label}</h3>
               <span className="ml-auto text-xs text-white/50">{items.length} scheduled</span>
             </div>
-
+ 
             {items.length === 0 ? (
               <p className="py-4 text-center text-sm text-white/40">No medicines in this slot.</p>
             ) : (
@@ -260,7 +261,7 @@ export function MedicineReminders() {
                 {items.map((m) => {
                   const status = m.status ?? (m.taken ? "taken" : "pending");
                   return (
-                    <div key={m.id} className="rounded-xl bg-white/5 p-4">
+                    <div key={m.id} className="rounded-xl bg-white/5 p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
@@ -307,11 +308,11 @@ export function MedicineReminders() {
                           </button>
                         </div>
                       </div>
-
+ 
                       <div className="mt-3 flex items-center gap-2">
                         <button
                           onClick={() => setStatus(m.id, "taken")}
-                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition ${
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${
                             status === "taken"
                               ? "bg-white/20 text-white"
                               : "bg-white/5 text-white/70 hover:bg-white/10"
@@ -321,7 +322,7 @@ export function MedicineReminders() {
                         </button>
                         <button
                           onClick={() => setStatus(m.id, "missed")}
-                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition ${
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${
                             status === "missed"
                               ? "bg-white/20 text-white"
                               : "bg-white/5 text-white/70 hover:bg-white/10"

@@ -10,7 +10,7 @@ import {
   type User,
 } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
-import { ensureUserDocument } from "@/lib/firestoreService";
+import { ensureUserDocument, saveActivityLog } from "@/lib/firestoreService";
 import type { Session } from "@/lib/identity";
 
 export interface AuthResult {
@@ -93,6 +93,8 @@ export function useAuth(): UseAuth {
       } else {
         // Ensure the user document exists in Firestore with readable fields.
         ensureUserDocument();
+        // Log the login activity.
+        saveActivityLog("login", "Authentication", `User ${user.email} logged in`, { provider: user.providerData?.[0]?.providerId || "email" });
       }
       setSession(sessionFromUser(user));
       setAuthReady(true);
@@ -150,8 +152,9 @@ export function useAuth(): UseAuth {
 
   const signOut = useCallback(async (): Promise<void> => {
     console.log("[Auth] Sign-out started");
+    // Log logout before signing out (user still available).
+    saveActivityLog("logout", "Authentication", "User signed out");
     await firebaseSignOut(auth);
-    // Clear stale localStorage user profile.
     if (typeof window !== "undefined") {
       localStorage.removeItem("mediscan_user_profile");
     }

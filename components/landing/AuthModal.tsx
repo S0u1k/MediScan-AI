@@ -167,7 +167,7 @@ export function AuthModal({
               type="button"
               aria-label="Close dialog"
               onClick={onClose}
-              className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 outline-none transition hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/40"
+              className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 outline-none transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
             >
               <X className="h-4 w-4" strokeWidth={1.5} />
             </button>
@@ -232,7 +232,11 @@ export function AuthModal({
               <button
                 type="submit"
                 disabled={busy}
-                className="liquid-glass mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white outline-none transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40 active:scale-[0.99] disabled:opacity-60"
+                className={`liquid-glass mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-white/40 ${
+                  busy
+                    ? "opacity-50 cursor-not-allowed bg-transparent"
+                    : "hover:scale-105 active:scale-95 hover:bg-white/15"
+                }`}
               >
                 {pending === "email" ? (
                   <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
@@ -250,7 +254,9 @@ export function AuthModal({
                 type="button"
                 onClick={toggleMode}
                 disabled={busy}
-                className="font-medium text-white underline-offset-4 outline-none transition hover:underline focus-visible:underline disabled:opacity-60"
+                className={`font-medium text-white underline-offset-4 outline-none transition-all duration-300 ease-out hover:underline focus-visible:underline ${
+                  busy ? "opacity-50 cursor-not-allowed" : "hover:text-white"
+                }`}
               >
                 {isSignUp
                   ? CONFIG.modal.switchToSignInAction
@@ -265,14 +271,16 @@ export function AuthModal({
               <span className="h-px flex-1 bg-white/15" />
             </div>
 
-            <motion.button
+            <button
               type="button"
               aria-label={CONFIG.modal.googleLabel}
               onClick={handleGoogle}
               disabled={busy}
-              whileHover={reduceMotion || busy ? undefined : { scale: 1.03 }}
-              whileTap={reduceMotion || busy ? undefined : { scale: 0.98 }}
-              className="liquid-glass flex w-full items-center justify-center gap-3 rounded-xl py-3 text-sm font-medium text-white outline-none transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40 disabled:opacity-60"
+              className={`liquid-glass flex w-full items-center justify-center gap-3 rounded-xl py-3 text-sm font-medium text-white outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-white/40 ${
+                busy
+                  ? "opacity-50 cursor-not-allowed bg-transparent"
+                  : "hover:scale-105 active:scale-95 hover:bg-white/15"
+              }`}
             >
               {pending === "google" ? (
                 <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
@@ -280,7 +288,7 @@ export function AuthModal({
                 <GoogleIcon />
               )}
               {CONFIG.modal.googleLabel}
-            </motion.button>
+            </button>
           </motion.div>
         </motion.div>
       ) : null}

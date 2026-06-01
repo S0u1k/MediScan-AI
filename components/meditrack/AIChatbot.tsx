@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, Info, Loader2, Send, Sparkles, Trash2, User } from "lucide-react";
 import { storageService, type ChatMessage, type UserProfile } from "@/lib/storage";
-import { saveUserData } from "@/lib/firestoreService";
+import { saveUserData, saveActivityLog } from "@/lib/firestoreService";
 import { GlassCard, GlassInput } from "./ui";
 
 interface AIChatbotProps {
@@ -285,6 +285,7 @@ export function AIChatbot({ user }: AIChatbotProps) {
       setMessages(final);
       storageService.saveChatHistory(final);
       saveUserData("aiAssistantLogs", { userMessage: userMessage.content, assistantResponse: text, language, mode: usedMode === "ai" ? "AI Mode" : "Demo Mode", modelUsed: "deepseek/deepseek-chat", timestamp: new Date().toISOString() }, "AI Assistant");
+      saveActivityLog("ai_assistant_message", "AI Assistant", `AI chat: "${userMessage.content.slice(0, 60)}${userMessage.content.length > 60 ? "…" : ""}"`, { mode: usedMode, language });
     } finally {
       setIsLoading(false);
     }
@@ -334,7 +335,7 @@ export function AIChatbot({ user }: AIChatbotProps) {
               <button
                 key={lang}
                 onClick={() => changeLanguage(lang)}
-                className={`rounded-full px-2.5 py-1.5 text-[11px] font-medium transition ${language === lang ? "bg-white/15 text-white" : "text-white/50 hover:text-white/80"}`}
+                className={`rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${language === lang ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/10 hover:text-white/80"}`}
               >
                 {lang === "English" ? "EN" : lang === "Hindi" ? "हि" : "বা"}
               </button>
@@ -348,7 +349,7 @@ export function AIChatbot({ user }: AIChatbotProps) {
           <button
             onClick={clear}
             aria-label="Clear chat history"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-white/50 transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/10 hover:text-white"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -407,7 +408,7 @@ export function AIChatbot({ user }: AIChatbotProps) {
                 <button
                   key={q}
                   onClick={() => setInput(q)}
-                  className="rounded-full bg-white/5 px-3.5 py-2 text-xs text-white/80 transition hover:bg-white/10"
+                  className="rounded-full bg-white/5 px-3.5 py-2 text-xs text-white/80 transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/10"
                 >
                   {q}
                 </button>
@@ -435,7 +436,11 @@ export function AIChatbot({ user }: AIChatbotProps) {
               type="submit"
               disabled={!input.trim() || isLoading}
               aria-label="Send message"
-              className="liquid-glass glass-glow flex h-12 w-12 items-center justify-center rounded-2xl text-white outline-none transition focus-visible:ring-2 focus-visible:ring-white/40 disabled:opacity-50"
+              className={`liquid-glass glass-glow flex h-12 w-12 items-center justify-center rounded-2xl text-white outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-white/40 ${
+                (!input.trim() || isLoading)
+                  ? "opacity-50 cursor-not-allowed bg-transparent"
+                  : "hover:scale-105 active:scale-95 hover:bg-white/15"
+              }`}
             >
               <Send className="h-4 w-4" />
             </button>

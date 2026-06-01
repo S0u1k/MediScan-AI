@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Activity, Flame, Footprints, Heart, Minus, Moon, TrendingDown, TrendingUp } from "lucide-react";
 import { storageService, type HealthStat } from "@/lib/storage";
-import { saveUserData } from "@/lib/firestoreService";
+import { saveUserData, saveActivityLog } from "@/lib/firestoreService";
 import { BarChart, GlassCard, GlassInput, SectionTitle } from "./ui";
 
 const todayKey = () => new Date().toISOString().split("T")[0];
@@ -32,6 +32,7 @@ export function HealthStats() {
     setToday(updated);
     storageService.updateHealthStat(updated);
     saveUserData("smartwatchHealth", { ...updated, savedAt: new Date().toISOString() }, "Health Stats");
+    saveActivityLog("smartwatch_data_saved", "Health Stats", "Health stats updated", { heartRate: updated.heartRate, steps: updated.steps, sleepHours: updated.sleepHours });
     setStats((prev) => {
       const others = prev.filter((s) => s.date !== updated.date);
       return [...others, updated];
@@ -79,7 +80,7 @@ export function HealthStats() {
           const trend = trendFor(c.field);
           const TrendIcon = trend?.dir === "up" ? TrendingUp : trend?.dir === "down" ? TrendingDown : Minus;
           return (
-            <div key={c.field} className="liquid-glass rounded-[1.25rem] p-4">
+            <div key={c.field} className="liquid-glass rounded-[1.25rem] p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
               <div className="mb-3 flex items-start justify-between">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
                   <c.Icon className="h-5 w-5 text-white" strokeWidth={1.5} />

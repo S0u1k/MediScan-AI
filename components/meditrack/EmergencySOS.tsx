@@ -105,7 +105,7 @@ export function EmergencySOS({ user }: EmergencySOSProps) {
               <button
                 onClick={() => setCountdown(5)}
                 aria-label="Activate emergency SOS"
-                className="liquid-glass-strong sos-pulse mx-auto mb-6 flex h-32 w-32 flex-col items-center justify-center rounded-full bg-red-500/15 text-red-100 shadow-red-500/20 transition-all hover:scale-105 hover:bg-red-500/25 active:scale-95"
+                className="liquid-glass-strong sos-pulse mx-auto mb-6 flex h-32 w-32 flex-col items-center justify-center rounded-full bg-red-500/15 text-red-100 shadow-[0_8px_28px_rgba(239,68,68,0.2)] transition-all duration-300 ease-out hover:scale-105 hover:bg-red-500/25 active:scale-95"
               >
                 <AlertTriangle className="mb-1 h-10 w-10" strokeWidth={1.75} />
                 <span className="text-lg font-semibold tracking-wide">SOS</span>
@@ -129,7 +129,7 @@ export function EmergencySOS({ user }: EmergencySOSProps) {
             <button
               key={label}
               onClick={() => call(phone)}
-              className="flex items-center gap-3 rounded-xl bg-white/5 p-4 text-left transition hover:bg-white/10"
+              className="flex items-center gap-3 rounded-xl bg-white/5 p-4 text-left transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
                 <Icon className="h-5 w-5 text-white" strokeWidth={1.5} />
@@ -179,7 +179,7 @@ export function EmergencySOS({ user }: EmergencySOSProps) {
 
         <div className="space-y-3">
           {contacts.map((c) => (
-            <div key={c.id} className="flex items-center justify-between rounded-xl bg-white/5 p-4">
+            <div key={c.id} className="flex items-center justify-between rounded-xl bg-white/5 p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
               <div className="flex items-center gap-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
                   <User className="h-5 w-5 text-white" strokeWidth={1.5} />

@@ -89,8 +89,8 @@ export function BMICalculator() {
             <button
               key={String(metric)}
               onClick={() => setIsMetric(metric)}
-              className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-                isMetric === metric ? "bg-white/20 text-white" : "text-white/50 hover:text-white"
+              className={`rounded-md px-4 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${
+                isMetric === metric ? "bg-white/20 text-white" : "text-white/50 hover:bg-white/10 hover:text-white"
               }`}
             >
               {metric ? "Metric (cm/kg)" : "Imperial (in/lb)"}
@@ -171,8 +171,8 @@ export function BMICalculator() {
           {bmiCategories.map((c) => (
             <div
               key={c.label}
-              className={`rounded-xl p-4 transition ${
-                category?.label === c.label ? "bg-white/15" : "bg-white/5"
+              className={`rounded-xl p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl ${
+                category?.label === c.label ? "bg-white/15" : "bg-white/5 hover:bg-white/10"
               }`}
             >
               <div className="mb-2 h-3 w-3 rounded-full bg-white/60" />
@@ -192,7 +192,7 @@ export function BMICalculator() {
               return (
                 <div
                   key={`${r.date}-${i}`}
-                  className="flex items-center justify-between rounded-lg bg-white/5 p-3"
+                  className="flex items-center justify-between rounded-lg bg-white/5 p-3 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-white/60" />

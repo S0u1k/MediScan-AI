@@ -59,19 +59,17 @@ export function HeroContent({
 
       {/* Primary CTA */}
       <motion.div variants={item} transition={{ duration: 0.6, ease: "easeOut" }}>
-        <motion.button
+        <button
           type="button"
           aria-label={CONFIG.ctaLabel}
           onClick={(e) => onPrimaryAction(e.currentTarget)}
-          whileHover={reduceMotion ? undefined : { scale: 1.04 }}
-          whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-          className="liquid-glass-strong group flex items-center gap-3 rounded-full py-3 pl-7 pr-3 text-base font-medium text-white outline-none transition-colors duration-300 hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-white/40"
+          className="liquid-glass-strong group flex items-center gap-3 rounded-full py-3 pl-7 pr-3 text-base font-medium text-white outline-none transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/40"
         >
           {CONFIG.ctaLabel}
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 transition-transform duration-300 group-hover:translate-x-0.5">
             <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
           </span>
-        </motion.button>
+        </button>
       </motion.div>
 
       {/* Feature pills */}

@@ -486,7 +486,7 @@ export function ReportsAnalytics() {
               "Hydration & BMI insights",
               "Quick summary export",
             ].map((feature) => (
-              <div key={feature} className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+              <div key={feature} className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-white/70 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
                 <span className="block text-sm font-medium text-white">{feature}</span>
               </div>
             ))}

@@ -128,7 +128,7 @@ export function ContactUs() {
       {/* Developer Cards */}
       <div className="grid gap-6 lg:grid-cols-2">
         {developers.map((dev) => (
-          <GlassCard key={dev.name} className="group relative overflow-hidden">
+          <GlassCard key={dev.name} className="group relative overflow-hidden transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
             {/* Background accent */}
             <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5 transition-all duration-500 group-hover:bg-white/10" />
 
@@ -177,14 +177,14 @@ export function ContactUs() {
               <div className="grid grid-cols-2 gap-2">
                 <a
                   href={`mailto:${dev.email}`}
-                  className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
+                  className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-xs text-white/70 transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/10 hover:text-white"
                 >
                   <Mail className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{dev.email}</span>
                 </a>
                 <a
                   href={`tel:${dev.phone}`}
-                  className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
+                  className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-xs text-white/70 transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/10 hover:text-white"
                 >
                   <Phone className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{dev.phone}</span>
@@ -193,7 +193,7 @@ export function ContactUs() {
                   href={dev.github}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
+                  className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-xs text-white/70 transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/10 hover:text-white"
                 >
                   <Github className="h-3.5 w-3.5 shrink-0" />
                   GitHub Profile
@@ -203,7 +203,7 @@ export function ContactUs() {
                   href={dev.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
+                  className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-xs text-white/70 transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/10 hover:text-white"
                 >
                   <Globe className="h-3.5 w-3.5 shrink-0" />
                   Portfolio
@@ -298,7 +298,7 @@ export function ContactUs() {
           />
           <button
             type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/15 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/25 active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/15 px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/25"
           >
             <Mail className="h-4 w-4" />
             Send Message

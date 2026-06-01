@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Bell, Calendar, Clock, Pill, Plus, Stethoscope, TestTube, Trash2 } from "lucide-react";
 import { GlassButton, GlassCard, GlassInput, SectionTitle, StatTile } from "./ui";
-import { saveUserData } from "@/lib/firestoreService";
+import { saveUserData, saveActivityLog } from "@/lib/firestoreService";
 
 type ReminderType = "follow-up" | "medicine-review" | "lab-test" | "appointment";
 interface Reminder { id: string; type: ReminderType; title: string; date: string; time: string; notes?: string; completed: boolean; }
@@ -27,6 +27,7 @@ export function FollowUpManager() {
     const r: Reminder = { id: Date.now().toString(), ...form, completed: false };
     const updated = [r, ...reminders]; setReminders(updated); save(updated);
     saveUserData("followUps", { ...r, savedAt: new Date().toISOString() }, "Follow-Up Manager");
+    saveActivityLog("followup_created", "Follow-Up Manager", `Follow-up reminder created: ${r.title}`, { type: r.type, date: r.date });
     setForm({ type: "follow-up", title: "", date: "", time: "", notes: "" }); setShowForm(false);
   };
 
@@ -62,7 +63,7 @@ export function FollowUpManager() {
           <div className="mb-5 space-y-3 border-b border-white/10 pb-5">
             <div className="flex flex-wrap gap-2">
               {(Object.keys(TYPE_LABEL) as ReminderType[]).map(t => (
-                <button key={t} onClick={() => setForm({ ...form, type: t })} className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${form.type === t ? "bg-white/20 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}>{TYPE_LABEL[t]}</button>
+                <button key={t} onClick={() => setForm({ ...form, type: t })} className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${form.type === t ? "bg-white/20 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}>{TYPE_LABEL[t]}</button>
               ))}
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -79,7 +80,7 @@ export function FollowUpManager() {
           {upcoming.length === 0 ? <p className="py-6 text-center text-sm text-white/40">No upcoming reminders.</p> : upcoming.map(r => {
             const Icon = TYPE_ICON[r.type];
             return (
-              <div key={r.id} className="flex items-center justify-between rounded-xl bg-white/5 p-4">
+              <div key={r.id} className="flex items-center justify-between rounded-xl bg-white/5 p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
                 <div className="flex items-center gap-3">
                   <button onClick={() => toggle(r.id)} className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 transition hover:bg-white/15"><Icon className="h-5 w-5 text-white" strokeWidth={1.5} /></button>
                   <div><p className="font-medium text-white">{r.title}</p><p className="text-xs text-white/50">{TYPE_LABEL[r.type]} · {r.date} {r.time}</p></div>

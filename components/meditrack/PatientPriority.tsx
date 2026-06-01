@@ -80,7 +80,7 @@ export function PatientPriority() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {([["critical", "Immediate"], ["high", "< 15 min"], ["medium", "1-2 hours"], ["low", "Routine"]] as [Priority, string][]).map(([p, time]) => (
-          <div key={p} className={`rounded-xl p-4 ${PRIORITY_BG[p]}`}>
+          <div key={p} className={`rounded-xl p-4 ${PRIORITY_BG[p]} transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl`}>
             <p className={`text-sm font-medium capitalize ${PRIORITY_COLOR[p]}`}>{p}</p>
             <p className="text-xs text-white/50">Response: {time}</p>
           </div>

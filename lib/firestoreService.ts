@@ -14,7 +14,6 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
-// Firestore collections under users/{uid}/
 export type FirestoreCollection =
   | "profile"
   | "prescriptions"
@@ -25,11 +24,23 @@ export type FirestoreCollection =
   | "aiAssistantLogs"
   | "triageCases"
   | "followUps"
-  | "smartwatchHealth";
+  | "smartwatchHealth"
+  | "activityLogs";
 
-/**
- * Returns the current user's UID, email, and display name, or null if not logged in.
- */
+export type ActionType =
+  | "login"
+  | "logout"
+  | "ai_assistant_message"
+  | "xray_analyzed"
+  | "prescription_scanned"
+  | "lab_report_analyzed"
+  | "report_summarized"
+  | "medicine_reminder_created"
+  | "triage_created"
+  | "followup_created"
+  | "smartwatch_data_saved"
+  | "profile_updated";
+
 function getCurrentUser(): { uid: string; email: string; displayName: string; photoURL: string; provider: string } | null {
   const user = auth.currentUser;
   if (!user) return null;
@@ -42,18 +53,12 @@ function getCurrentUser(): { uid: string; email: string; displayName: string; ph
   };
 }
 
-/**
- * Creates or updates the parent user document at users/{uid}.
- * Call this after every successful login/signup so the user is always
- * identifiable in Firestore.
- */
+/** Creates or updates the parent users/{uid} document with readable identity fields. */
 export async function ensureUserDocument(): Promise<void> {
   const user = getCurrentUser();
   if (!user) return;
-
   try {
-    const userDocRef = doc(db, "users", user.uid);
-    await setDoc(userDocRef, {
+    await setDoc(doc(db, "users", user.uid), {
       uid: user.uid,
       email: user.email,
       displayName: user.displayName,
@@ -63,28 +68,58 @@ export async function ensureUserDocument(): Promise<void> {
       lastLoginAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
-    }, { merge: true }); // merge: true preserves createdAt on subsequent logins
-    console.log("[Firestore] User document ensured for:", user.email);
+    }, { merge: true });
+    console.log("[Firestore] User document ensured:", user.email);
   } catch (err) {
-    console.error("[Firestore] Failed to ensure user document:", err);
+    console.error("[Firestore] ensureUserDocument failed:", err);
   }
 }
 
 /**
- * Saves data to Firestore under users/{uid}/{collectionName}.
- * Every record includes uid, userEmail, userName, moduleName, timestamps.
- * Returns the document ID on success, or null on failure.
- * Falls back to localStorage if Firestore fails.
+ * Saves an activity log to both:
+ *   users/{uid}/activityLogs/{logId}   (per-user)
+ *   activityLogs/{logId}               (global admin view)
  */
+export async function saveActivityLog(
+  actionType: ActionType,
+  moduleName: string,
+  description: string,
+  metadata: Record<string, unknown> = {},
+  status: "success" | "failed" | "rejected" = "success"
+): Promise<void> {
+  const user = getCurrentUser();
+  if (!user) return;
+
+  const log = {
+    uid: user.uid,
+    userEmail: user.email,
+    userName: user.displayName,
+    actionType,
+    moduleName,
+    description,
+    status,
+    metadata,
+    createdAt: serverTimestamp(),
+  };
+
+  try {
+    // Per-user activity log
+    await addDoc(collection(db, "users", user.uid, "activityLogs"), log);
+    // Global admin activity log
+    await addDoc(collection(db, "activityLogs"), log);
+  } catch (err) {
+    console.error("[Firestore] saveActivityLog failed:", err);
+  }
+}
+
+/** Saves data to users/{uid}/{collectionName}. Falls back to localStorage on failure. */
 export async function saveUserData(
   collectionName: FirestoreCollection,
   data: Record<string, unknown>,
   moduleName: string
 ): Promise<{ success: boolean; docId?: string; fallback?: boolean }> {
   const user = getCurrentUser();
-  if (!user) {
-    return { success: false };
-  }
+  if (!user) return { success: false };
 
   const record: Record<string, unknown> = {
     ...data,
@@ -97,13 +132,10 @@ export async function saveUserData(
   };
 
   try {
-    const colRef = collection(db, "users", user.uid, collectionName);
-    const docRef = await addDoc(colRef, record);
-    console.log(`[Firestore] Saved to ${collectionName}:`, docRef.id);
+    const docRef = await addDoc(collection(db, "users", user.uid, collectionName), record);
     return { success: true, docId: docRef.id };
   } catch (err) {
-    console.error(`[Firestore] Save failed for ${collectionName}:`, err);
-    // Fallback: save to localStorage
+    console.error(`[Firestore] saveUserData(${collectionName}) failed:`, err);
     try {
       const key = `mediscan_firestore_fallback_${collectionName}`;
       const existing = JSON.parse(localStorage.getItem(key) || "[]") as unknown[];
@@ -116,24 +148,17 @@ export async function saveUserData(
   }
 }
 
-/**
- * Gets all documents from users/{uid}/{collectionName}, ordered by createdAt desc.
- */
 export async function getUserData(
   collectionName: FirestoreCollection
 ): Promise<{ success: boolean; data: Record<string, unknown>[]; fallback?: boolean }> {
   const user = getCurrentUser();
   if (!user) return { success: false, data: [] };
-
   try {
-    const colRef = collection(db, "users", user.uid, collectionName);
-    const q = query(colRef, orderBy("createdAt", "desc"));
+    const q = query(collection(db, "users", user.uid, collectionName), orderBy("createdAt", "desc"));
     const snapshot = await getDocs(q);
-    const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-    return { success: true, data };
+    return { success: true, data: snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) };
   } catch (err) {
-    console.error(`[Firestore] Read failed for ${collectionName}:`, err);
-    // Fallback: read from localStorage
+    console.error(`[Firestore] getUserData(${collectionName}) failed:`, err);
     try {
       const key = `mediscan_firestore_fallback_${collectionName}`;
       const data = JSON.parse(localStorage.getItem(key) || "[]") as Record<string, unknown>[];
@@ -144,9 +169,6 @@ export async function getUserData(
   }
 }
 
-/**
- * Updates a specific document in users/{uid}/{collectionName}/{docId}.
- */
 export async function updateUserData(
   collectionName: FirestoreCollection,
   docId: string,
@@ -154,40 +176,54 @@ export async function updateUserData(
 ): Promise<{ success: boolean }> {
   const user = getCurrentUser();
   if (!user) return { success: false };
-
   try {
-    const docRef = doc(db, "users", user.uid, collectionName, docId);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(doc(db, "users", user.uid, collectionName, docId), { ...data, updatedAt: serverTimestamp() });
     return { success: true };
   } catch (err) {
-    console.error(`[Firestore] Update failed for ${collectionName}/${docId}:`, err);
+    console.error(`[Firestore] updateUserData failed:`, err);
     return { success: false };
   }
 }
 
-/**
- * Deletes a specific document from users/{uid}/{collectionName}/{docId}.
- */
 export async function deleteUserData(
   collectionName: FirestoreCollection,
   docId: string
 ): Promise<{ success: boolean }> {
   const user = getCurrentUser();
   if (!user) return { success: false };
-
   try {
-    const docRef = doc(db, "users", user.uid, collectionName, docId);
-    await deleteDoc(docRef);
+    await deleteDoc(doc(db, "users", user.uid, collectionName, docId));
     return { success: true };
   } catch (err) {
-    console.error(`[Firestore] Delete failed for ${collectionName}/${docId}:`, err);
+    console.error(`[Firestore] deleteUserData failed:`, err);
     return { success: false };
   }
 }
 
-/**
- * Checks if the user is logged in. Returns a message if not.
- */
+/** Gets all activity logs for the current user. */
+export async function getUserActivityLogs(): Promise<Record<string, unknown>[]> {
+  const user = getCurrentUser();
+  if (!user) return [];
+  try {
+    const q = query(collection(db, "users", user.uid, "activityLogs"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    return [];
+  }
+}
+
+/** Gets all activity logs across all users (admin only). */
+export async function getAllActivityLogsForAdmin(): Promise<Record<string, unknown>[]> {
+  try {
+    const q = query(collection(db, "activityLogs"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    return [];
+  }
+}
+
 export function requireAuth(): { authenticated: boolean; message?: string } {
   const user = getCurrentUser();
   if (!user) return { authenticated: false, message: "Please sign in to save your data." };

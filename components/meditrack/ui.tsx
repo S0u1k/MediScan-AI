@@ -39,14 +39,18 @@ export function GlassButton({
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "solid" | "ghost";
 }) {
+  const { disabled } = props;
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-white/40 active:scale-95 disabled:opacity-50";
-  const styles =
-    variant === "solid"
-      ? "liquid-glass glass-glow text-white"
-      : "text-white/70 hover:bg-white/10 hover:text-white";
+    "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium outline-none transition-all duration-300 ease-out";
+  
+  const statusStyles = disabled
+    ? "opacity-50 cursor-not-allowed bg-transparent"
+    : variant === "solid"
+    ? "liquid-glass glass-glow text-white hover:scale-105 active:scale-95 hover:bg-white/15"
+    : "text-white/70 hover:bg-white/10 hover:text-white active:scale-95";
+
   return (
-    <button className={`${base} ${styles} ${className}`} {...props}>
+    <button className={`${base} ${statusStyles} ${className}`} {...props}>
       {children}
     </button>
   );
@@ -76,7 +80,7 @@ export function StatTile({
   icon?: ReactNode;
 }) {
   return (
-    <div className="liquid-glass rounded-[1.25rem] p-4">
+    <div className="liquid-glass rounded-[1.25rem] p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
       <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
         {icon}
       </div>
