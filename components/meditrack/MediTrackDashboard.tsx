@@ -18,6 +18,7 @@ import {
   Pill,
   ScanLine,
   TestTube,
+  User,
   X,
 } from "lucide-react";
 import { storageService, type UserProfile } from "@/lib/storage";
@@ -79,6 +80,10 @@ const ContactUs = dynamic(
   () => import("./ContactUs").then((m) => m.ContactUs),
   { loading: skeleton("Loading contact page…"), ssr: false }
 );
+const MyProfile = dynamic(
+  () => import("./MyProfile").then((m) => m.MyProfile),
+  { loading: skeleton("Loading your profile…"), ssr: false }
+);
 
 interface MediTrackDashboardProps {
   email: string;
@@ -87,17 +92,18 @@ interface MediTrackDashboardProps {
 }
 
 const navItems: { id: DashboardTab; label: string; Icon: typeof Home; dot?: boolean }[] = [
-  { id: "overview", label: "Overview", Icon: Home },
-  { id: "medicine", label: "Medicines", Icon: Pill },
-  { id: "scanner", label: "Scan Rx", Icon: ScanLine },
-  { id: "xray", label: "X-Ray Analyzer", Icon: Bone },
-  { id: "lab", label: "Lab Reports", Icon: TestTube },
-  { id: "bmi", label: "BMI", Icon: Calculator },
-  { id: "water", label: "Hydration", Icon: Droplets },
-  { id: "emergency", label: "Emergency", Icon: AlertTriangle, dot: true },
-  { id: "chat", label: "AI Assistant", Icon: MessageSquare },
-  { id: "your-report", label: "Your Report", Icon: Activity },
-  { id: "follow-up", label: "Follow-Ups", Icon: Bell },
+  { id: "overview",    label: "Overview",     Icon: Home },
+  { id: "medicine",    label: "Medicines",     Icon: Pill },
+  { id: "scanner",     label: "Scan Rx",       Icon: ScanLine },
+  { id: "xray",        label: "X-Ray Analyzer",Icon: Bone },
+  { id: "lab",         label: "Lab Reports",   Icon: TestTube },
+  { id: "bmi",         label: "BMI",           Icon: Calculator },
+  { id: "water",       label: "Hydration",     Icon: Droplets },
+  { id: "emergency",   label: "Emergency",     Icon: AlertTriangle, dot: true },
+  { id: "chat",        label: "AI Assistant",  Icon: MessageSquare },
+  { id: "your-report", label: "Your Report",   Icon: Activity },
+  { id: "follow-up",   label: "Follow-Ups",    Icon: Bell },
+  { id: "my-profile",  label: "My Profile",    Icon: User },
 ];
 
 export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboardProps) {
@@ -168,6 +174,8 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
         return <MergedReports />;
       case "follow-up":
         return <FollowUpManager />;
+      case "my-profile":
+        return <MyProfile />;
       case "contact":
         return <ContactUs />;
       default:
@@ -180,6 +188,8 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
       ? `Welcome, ${profile.name}`
       : activeTab === "contact"
       ? "Contact Us"
+      : activeTab === "my-profile"
+      ? "My Profile & Firestore Data"
       : navItems.find((i) => i.id === activeTab)?.label ?? activeTab;
 
   return (
@@ -261,8 +271,14 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
               Contact Us
             </button>
 
-            {/* User profile block */}
-            <div className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5">
+            {/* User profile block — click to open My Profile */}
+            <button
+              type="button"
+              onClick={() => { setActiveTab("my-profile"); setSidebarOpen(false); }}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-300 ease-out hover:bg-white/10 ${
+                activeTab === "my-profile" ? "bg-white/15" : "bg-white/5"
+              }`}
+            >
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
                 <span className="text-sm font-semibold text-white">
                   {profile.name.charAt(0).toUpperCase()}
@@ -270,9 +286,12 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-white">{profile.name}</p>
-                <p className="truncate text-xs text-white/50">{profile.email}</p>
+                <p className="truncate text-xs text-white/50">
+                  {profile.email || "View my data →"}
+                </p>
               </div>
-            </div>
+              <User className="h-4 w-4 shrink-0 text-white/30" />
+            </button>
 
             {/* Logout */}
             <button

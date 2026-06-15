@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Loader2, Shield, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { Loader2, Phone, Shield, X } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { CONFIG } from "@/lib/config";
 
 interface AuthResult {
@@ -16,16 +16,21 @@ interface AuthModalProps {
   onEmailSubmit: (email: string, password: string) => Promise<AuthResult>;
   onEmailSignUp: (email: string, password: string) => Promise<AuthResult>;
   onGoogleSignIn: () => Promise<AuthResult>;
+  /** Sends OTP – must receive the DOM id of the invisible reCAPTCHA container. */
+  onPhoneSignIn: (phone: string, containerId: string) => Promise<AuthResult>;
+  /** Confirms the OTP code entered by the user. */
+  onVerifyOTP: (otp: string) => Promise<AuthResult>;
 }
 
 type AuthMode = "signin" | "signup";
+type AuthTab = "email" | "phone";
+type PhoneStep = "enterPhone" | "enterOTP";
 
 const FOCUSABLE =
-  'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+  'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex=\"-1\"])';
 
 /**
- * Cinematic authentication modal with focus trap, Escape-to-close, initial
- * focus, and focus restoration. Requirements 10.1–10.10, 15.2–15.5.
+ * Cinematic authentication modal with Email, Google, and Phone (OTP) sign-in.
  */
 export function AuthModal({
   isOpen,
@@ -33,19 +38,38 @@ export function AuthModal({
   onEmailSubmit,
   onEmailSignUp,
   onGoogleSignIn,
+  onPhoneSignIn,
+  onVerifyOTP,
 }: AuthModalProps) {
   const reduceMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const recaptchaId = useId().replace(/:/g, "recaptcha");
+
+  // Email tab state
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<"email" | "google" | null>(null);
 
-  // Reset transient state whenever the modal is (re)opened.
+  // Phone tab state
+  const [activeTab, setActiveTab] = useState<AuthTab>("email");
+  const [phoneStep, setPhoneStep] = useState<PhoneStep>("enterPhone");
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+
+  // Shared state
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<"email" | "google" | "phone" | "otp" | null>(null);
+
+  // Reset all transient state whenever the modal is (re)opened.
   useEffect(() => {
     if (isOpen) {
       setMode("signin");
+      setActiveTab("email");
+      setPhoneStep("enterPhone");
+      setPhone("");
+      setOtp("");
+      setEmail("");
+      setPassword("");
       setError(null);
       setPending(null);
     }
@@ -88,7 +112,8 @@ export function AuthModal({
     [onClose]
   );
 
-  const handleSubmit = async (e: FormEvent) => {
+  // ── Email form ──────────────────────────────────────────────────────────────
+  const handleEmailSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (pending) return;
     setError(null);
@@ -106,7 +131,6 @@ export function AuthModal({
       );
       setPending(null);
     }
-    // On success the parent closes the modal.
   };
 
   const toggleMode = () => {
@@ -124,6 +148,50 @@ export function AuthModal({
       setError(result.error ?? "Unable to sign in. Please try again.");
       setPending(null);
     }
+  };
+
+  // ── Phone / OTP form ────────────────────────────────────────────────────────
+  const handleSendOTP = async (e: FormEvent) => {
+    e.preventDefault();
+    if (pending) return;
+    const trimmed = phone.trim();
+    if (!trimmed) {
+      setError("Please enter your phone number.");
+      return;
+    }
+    setError(null);
+    setPending("phone");
+    const result = await onPhoneSignIn(trimmed, recaptchaId);
+    if (result.ok) {
+      setPhoneStep("enterOTP");
+      setPending(null);
+    } else {
+      setError(result.error ?? "Unable to send OTP. Please try again.");
+      setPending(null);
+    }
+  };
+
+  const handleVerifyOTP = async (e: FormEvent) => {
+    e.preventDefault();
+    if (pending) return;
+    const trimmed = otp.trim();
+    if (!trimmed) {
+      setError("Please enter the verification code.");
+      return;
+    }
+    setError(null);
+    setPending("otp");
+    const result = await onVerifyOTP(trimmed);
+    if (!result.ok) {
+      setError(result.error ?? "Invalid code. Please try again.");
+      setPending(null);
+    }
+  };
+
+  const handleResendOTP = () => {
+    setPhoneStep("enterPhone");
+    setOtp("");
+    setError(null);
   };
 
   const busy = pending !== null;
@@ -163,6 +231,9 @@ export function AuthModal({
             transition={{ duration: 0.25, ease: "easeOut" }}
             className="liquid-glass-strong relative z-10 w-full max-w-md rounded-[2rem] p-8"
           >
+            {/* Invisible reCAPTCHA anchor */}
+            <div id={recaptchaId} aria-hidden="true" />
+
             <button
               type="button"
               aria-label="Close dialog"
@@ -180,115 +251,331 @@ export function AuthModal({
                 id="auth-modal-title"
                 className="text-2xl font-medium tracking-tight text-white"
               >
-                {isSignUp ? CONFIG.modal.signUpTitle : CONFIG.modal.title}
+                {activeTab === "phone"
+                  ? phoneStep === "enterPhone"
+                    ? "Sign in with Phone"
+                    : "Enter Verification Code"
+                  : isSignUp
+                  ? CONFIG.modal.signUpTitle
+                  : CONFIG.modal.title}
               </h2>
               <p id="auth-modal-subtitle" className="text-sm text-white/60">
-                {isSignUp ? CONFIG.modal.signUpSubtitle : CONFIG.modal.subtitle}
+                {activeTab === "phone"
+                  ? phoneStep === "enterPhone"
+                    ? "We'll send a one-time code to your number."
+                    : `Code sent to ${phone}. Check your SMS.`
+                  : isSignUp
+                  ? CONFIG.modal.signUpSubtitle
+                  : CONFIG.modal.subtitle}
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5 text-left">
-                <label htmlFor="auth-email" className="text-xs text-white/60">
-                  Email Address
-                </label>
-                <input
-                  id="auth-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  disabled={busy}
-                  className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition focus:bg-white/10 focus:ring-2 focus:ring-white/30 disabled:opacity-50"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5 text-left">
-                <label htmlFor="auth-password" className="text-xs text-white/60">
-                  Password
-                </label>
-                <input
-                  id="auth-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete={isSignUp ? "new-password" : "current-password"}
-                  disabled={busy}
-                  className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition focus:bg-white/10 focus:ring-2 focus:ring-white/30 disabled:opacity-50"
-                />
-              </div>
-
-              {error ? (
-                <p
-                  role="alert"
-                  className="text-center text-xs text-white/70"
-                >
-                  {error}
-                </p>
-              ) : null}
-
+            {/* ── Tab switcher ─────────────────────────────────────────────── */}
+            <div
+              role="tablist"
+              aria-label="Sign-in method"
+              className="mb-5 flex rounded-xl bg-white/5 p-1 gap-1"
+            >
               <button
-                type="submit"
-                disabled={busy}
-                className={`liquid-glass mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-white/40 ${
-                  busy
-                    ? "opacity-50 cursor-not-allowed bg-transparent"
-                    : "hover:scale-105 active:scale-95 hover:bg-white/15"
-                }`}
-              >
-                {pending === "email" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-                ) : null}
-                {isSignUp ? CONFIG.modal.signUpLabel : CONFIG.modal.signInLabel}
-              </button>
-            </form>
-
-            {/* Switch between Sign In and Create Account */}
-            <p className="mt-4 text-center text-xs text-white/50">
-              {isSignUp
-                ? CONFIG.modal.switchToSignInPrompt
-                : CONFIG.modal.switchToSignUpPrompt}{" "}
-              <button
+                role="tab"
                 type="button"
-                onClick={toggleMode}
-                disabled={busy}
-                className={`font-medium text-white underline-offset-4 outline-none transition-all duration-300 ease-out hover:underline focus-visible:underline ${
-                  busy ? "opacity-50 cursor-not-allowed" : "hover:text-white"
+                id="tab-email"
+                aria-selected={activeTab === "email"}
+                aria-controls="panel-email"
+                onClick={() => {
+                  if (busy) return;
+                  setActiveTab("email");
+                  setError(null);
+                }}
+                className={`flex-1 rounded-lg py-2 text-xs font-medium outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-white/40 ${
+                  activeTab === "email"
+                    ? "bg-white/15 text-white shadow-sm"
+                    : "text-white/50 hover:text-white/80"
                 }`}
               >
-                {isSignUp
-                  ? CONFIG.modal.switchToSignInAction
-                  : CONFIG.modal.switchToSignUpAction}
+                Email
               </button>
-            </p>
-
-            {/* OR divider */}
-            <div className="my-5 flex items-center gap-4">
-              <span className="h-px flex-1 bg-white/15" />
-              <span className="text-xs text-white/40">OR</span>
-              <span className="h-px flex-1 bg-white/15" />
+              <button
+                role="tab"
+                type="button"
+                id="tab-phone"
+                aria-selected={activeTab === "phone"}
+                aria-controls="panel-phone"
+                onClick={() => {
+                  if (busy) return;
+                  setActiveTab("phone");
+                  setError(null);
+                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-white/40 ${
+                  activeTab === "phone"
+                    ? "bg-white/15 text-white shadow-sm"
+                    : "text-white/50 hover:text-white/80"
+                }`}
+              >
+                <Phone className="h-3 w-3" strokeWidth={2} />
+                Phone
+              </button>
             </div>
 
-            <button
-              type="button"
-              aria-label={CONFIG.modal.googleLabel}
-              onClick={handleGoogle}
-              disabled={busy}
-              className={`liquid-glass flex w-full items-center justify-center gap-3 rounded-xl py-3 text-sm font-medium text-white outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-white/40 ${
-                busy
-                  ? "opacity-50 cursor-not-allowed bg-transparent"
-                  : "hover:scale-105 active:scale-95 hover:bg-white/15"
-              }`}
-            >
-              {pending === "google" ? (
-                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+            <AnimatePresence mode="wait">
+              {activeTab === "email" ? (
+                /* ── Email panel ───────────────────────────────────────────── */
+                <motion.div
+                  key="email-panel"
+                  id="panel-email"
+                  role="tabpanel"
+                  aria-labelledby="tab-email"
+                  initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <form onSubmit={handleEmailSubmit} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5 text-left">
+                      <label htmlFor="auth-email" className="text-xs text-white/60">
+                        Email Address
+                      </label>
+                      <input
+                        id="auth-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        autoComplete="email"
+                        disabled={busy}
+                        className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition focus:bg-white/10 focus:ring-2 focus:ring-white/30 disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 text-left">
+                      <label htmlFor="auth-password" className="text-xs text-white/60">
+                        Password
+                      </label>
+                      <input
+                        id="auth-password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete={isSignUp ? "new-password" : "current-password"}
+                        disabled={busy}
+                        className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition focus:bg-white/10 focus:ring-2 focus:ring-white/30 disabled:opacity-50"
+                      />
+                    </div>
+
+                    {error ? (
+                      <p role="alert" className="text-center text-xs text-white/70">
+                        {error}
+                      </p>
+                    ) : null}
+
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className={`liquid-glass mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-white/40 ${
+                        busy
+                          ? "opacity-50 cursor-not-allowed bg-transparent"
+                          : "hover:scale-105 active:scale-95 hover:bg-white/15"
+                      }`}
+                    >
+                      {pending === "email" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+                      ) : null}
+                      {isSignUp ? CONFIG.modal.signUpLabel : CONFIG.modal.signInLabel}
+                    </button>
+                  </form>
+
+                  {/* Switch between Sign In / Create Account */}
+                  <p className="mt-4 text-center text-xs text-white/50">
+                    {isSignUp
+                      ? CONFIG.modal.switchToSignInPrompt
+                      : CONFIG.modal.switchToSignUpPrompt}{" "}
+                    <button
+                      type="button"
+                      onClick={toggleMode}
+                      disabled={busy}
+                      className={`font-medium text-white underline-offset-4 outline-none transition-all duration-300 ease-out hover:underline focus-visible:underline ${
+                        busy ? "opacity-50 cursor-not-allowed" : "hover:text-white"
+                      }`}
+                    >
+                      {isSignUp
+                        ? CONFIG.modal.switchToSignInAction
+                        : CONFIG.modal.switchToSignUpAction}
+                    </button>
+                  </p>
+
+                  {/* OR divider */}
+                  <div className="my-5 flex items-center gap-4">
+                    <span className="h-px flex-1 bg-white/15" />
+                    <span className="text-xs text-white/40">OR</span>
+                    <span className="h-px flex-1 bg-white/15" />
+                  </div>
+
+                  <button
+                    type="button"
+                    aria-label={CONFIG.modal.googleLabel}
+                    onClick={handleGoogle}
+                    disabled={busy}
+                    className={`liquid-glass flex w-full items-center justify-center gap-3 rounded-xl py-3 text-sm font-medium text-white outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-white/40 ${
+                      busy
+                        ? "opacity-50 cursor-not-allowed bg-transparent"
+                        : "hover:scale-105 active:scale-95 hover:bg-white/15"
+                    }`}
+                  >
+                    {pending === "google" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+                    ) : (
+                      <GoogleIcon />
+                    )}
+                    {CONFIG.modal.googleLabel}
+                  </button>
+                </motion.div>
               ) : (
-                <GoogleIcon />
+                /* ── Phone panel ───────────────────────────────────────────── */
+                <motion.div
+                  key="phone-panel"
+                  id="panel-phone"
+                  role="tabpanel"
+                  aria-labelledby="tab-phone"
+                  initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <AnimatePresence mode="wait">
+                    {phoneStep === "enterPhone" ? (
+                      /* Step 1 – enter phone number */
+                      <motion.form
+                        key="enter-phone"
+                        onSubmit={handleSendOTP}
+                        className="flex flex-col gap-4"
+                        initial={{ opacity: 0, x: reduceMotion ? 0 : 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: reduceMotion ? 0 : -20 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <div className="flex flex-col gap-1.5 text-left">
+                          <label htmlFor="auth-phone" className="text-xs text-white/60">
+                            Phone Number
+                          </label>
+                          <input
+                            id="auth-phone"
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="+91 98765 43210"
+                            autoComplete="tel"
+                            disabled={busy}
+                            className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition focus:bg-white/10 focus:ring-2 focus:ring-white/30 disabled:opacity-50"
+                          />
+                          <p className="text-[10px] text-white/35 pl-1">
+                            Include country code, e.g.&nbsp;+91 for India
+                          </p>
+                        </div>
+
+                        {error ? (
+                          <p role="alert" className="text-center text-xs text-white/70">
+                            {error}
+                          </p>
+                        ) : null}
+
+                        <button
+                          type="submit"
+                          disabled={busy}
+                          className={`liquid-glass mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-white/40 ${
+                            busy
+                              ? "opacity-50 cursor-not-allowed bg-transparent"
+                              : "hover:scale-105 active:scale-95 hover:bg-white/15"
+                          }`}
+                        >
+                          {pending === "phone" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+                          ) : (
+                            <Phone className="h-4 w-4" strokeWidth={1.75} />
+                          )}
+                          Send Verification Code
+                        </button>
+                      </motion.form>
+                    ) : (
+                      /* Step 2 – enter OTP */
+                      <motion.form
+                        key="enter-otp"
+                        onSubmit={handleVerifyOTP}
+                        className="flex flex-col gap-4"
+                        initial={{ opacity: 0, x: reduceMotion ? 0 : 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: reduceMotion ? 0 : -20 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {/* Progress indicator */}
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[10px] font-semibold text-white">✓</span>
+                            <span className="text-[10px] text-white/40">Phone</span>
+                          </div>
+                          <span className="h-px w-6 bg-white/20" />
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-semibold text-black">2</span>
+                            <span className="text-[10px] text-white/70">Code</span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 text-left">
+                          <label htmlFor="auth-otp" className="text-xs text-white/60">
+                            6-digit Verification Code
+                          </label>
+                          <input
+                            id="auth-otp"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={6}
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                            placeholder="• • • • • •"
+                            autoComplete="one-time-code"
+                            disabled={busy}
+                            className="rounded-xl bg-white/5 px-4 py-3 text-center text-xl tracking-[0.5em] text-white placeholder-white/20 outline-none transition focus:bg-white/10 focus:ring-2 focus:ring-white/30 disabled:opacity-50"
+                          />
+                        </div>
+
+                        {error ? (
+                          <p role="alert" className="text-center text-xs text-white/70">
+                            {error}
+                          </p>
+                        ) : null}
+
+                        <button
+                          type="submit"
+                          disabled={busy}
+                          className={`liquid-glass mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-white/40 ${
+                            busy
+                              ? "opacity-50 cursor-not-allowed bg-transparent"
+                              : "hover:scale-105 active:scale-95 hover:bg-white/15"
+                          }`}
+                        >
+                          {pending === "otp" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+                          ) : null}
+                          Verify &amp; Sign In
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleResendOTP}
+                          disabled={busy}
+                          className={`text-center text-xs text-white/50 underline-offset-4 outline-none transition hover:underline focus-visible:underline ${
+                            busy ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                        >
+                          Change number / Resend code
+                        </button>
+                      </motion.form>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               )}
-              {CONFIG.modal.googleLabel}
-            </button>
+            </AnimatePresence>
           </motion.div>
         </motion.div>
       ) : null}

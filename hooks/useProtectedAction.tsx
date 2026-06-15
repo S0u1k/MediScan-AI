@@ -24,6 +24,10 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
   signInWithGoogle: () => Promise<AuthResult>;
+  /** Sends OTP to the given phone. containerId is the DOM id for reCAPTCHA widget. */
+  signInWithPhone: (phone: string, containerId: string) => Promise<AuthResult>;
+  /** Confirms the OTP entered by the user. */
+  verifyOTP: (otp: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
   /** Runs `action` when authenticated, otherwise opens the auth modal. */
   requestProtectedAction: (
@@ -36,7 +40,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { session, authReady, signIn, signUp, signInWithGoogle, signOut } =
+  const { session, authReady, signIn, signUp, signInWithGoogle, signInWithPhone, verifyOTP, signOut } =
     useAuth();
   const { isOpen, openModal, closeModal } = useAuthModal();
 
@@ -90,6 +94,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result;
   }, [signInWithGoogle, onAuthSuccess]);
 
+  const handlePhone = useCallback(
+    async (phone: string, containerId: string): Promise<AuthResult> => {
+      return signInWithPhone(phone, containerId);
+    },
+    [signInWithPhone]
+  );
+
+  const handleVerifyOTP = useCallback(
+    async (otp: string): Promise<AuthResult> => {
+      const result = await verifyOTP(otp);
+      if (result.ok) onAuthSuccess();
+      return result;
+    },
+    [verifyOTP, onAuthSuccess]
+  );
+
   const handleSignOut = useCallback(async (): Promise<void> => {
     await signOut();
     // Clear stale local state so the landing page shows Guest User cleanly.
@@ -112,6 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn: handleSignIn,
       signUp: handleSignUp,
       signInWithGoogle: handleGoogle,
+      signInWithPhone: handlePhone,
+      verifyOTP: handleVerifyOTP,
       signOut: handleSignOut,
       requestProtectedAction,
     }),
@@ -123,6 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       handleSignIn,
       handleSignUp,
       handleGoogle,
+      handlePhone,
+      handleVerifyOTP,
       handleSignOut,
       requestProtectedAction,
     ]

@@ -10,4 +10,5 @@ export type DashboardTab =
   | "chat"
   | "your-report"
   | "follow-up"
+  | "my-profile"
   | "contact";

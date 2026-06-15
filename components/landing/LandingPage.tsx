@@ -21,6 +21,8 @@ export function LandingPage() {
     signIn,
     signUp,
     signInWithGoogle,
+    signInWithPhone,
+    verifyOTP,
     signOut,
     requestProtectedAction,
   } = useProtectedAction();
@@ -78,6 +80,8 @@ export function LandingPage() {
         onEmailSubmit={(email, password) => signIn(email, password)}
         onEmailSignUp={(email, password) => signUp(email, password)}
         onGoogleSignIn={signInWithGoogle}
+        onPhoneSignIn={signInWithPhone}
+        onVerifyOTP={verifyOTP}
       />
     </>
   );

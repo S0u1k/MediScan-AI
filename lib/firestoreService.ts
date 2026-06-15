@@ -41,35 +41,70 @@ export type ActionType =
   | "smartwatch_data_saved"
   | "profile_updated";
 
-function getCurrentUser(): { uid: string; email: string; displayName: string; photoURL: string; provider: string } | null {
+function getCurrentUser(): {
+  uid: string;
+  email: string;
+  phoneNumber: string;
+  displayName: string;
+  photoURL: string;
+  provider: string;
+} | null {
   const user = auth.currentUser;
   if (!user) return null;
+
+  const phone = user.phoneNumber || "";
+  const email = user.email || "";
+
+  // For phone-only users there is no email, so derive a display name from the
+  // phone number.  For email/Google users fall back to the username portion of
+  // the email address as before.
+  const displayName =
+    user.displayName ||
+    (email ? email.split("@")[0] : phone ? phone : "User");
+
   return {
     uid: user.uid,
-    email: user.email || "",
-    displayName: user.displayName || user.email?.split("@")[0] || "User",
+    email,
+    phoneNumber: phone,
+    displayName,
     photoURL: user.photoURL || "",
-    provider: user.providerData?.[0]?.providerId || "email",
+    provider: user.providerData?.[0]?.providerId || "unknown",
   };
 }
 
-/** Creates or updates the parent users/{uid} document with readable identity fields. */
+/**
+ * Creates or updates the parent users/{uid} document with readable identity
+ * fields.  Works for Email, Google **and** Phone-number users.
+ * - Email/Google users  → email is populated, phoneNumber may be empty.
+ * - Phone users         → phoneNumber is populated, email is empty.
+ * The `{ merge: true }` option means existing fields (e.g. createdAt) are
+ * never overwritten on subsequent logins.
+ */
 export async function ensureUserDocument(): Promise<void> {
   const user = getCurrentUser();
   if (!user) return;
   try {
-    await setDoc(doc(db, "users", user.uid), {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      photoURL: user.photoURL,
-      provider: user.provider,
-      role: "patient",
-      lastLoginAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
-    }, { merge: true });
-    console.log("[Firestore] User document ensured:", user.email);
+    await setDoc(
+      doc(db, "users", user.uid),
+      {
+        uid: user.uid,
+        email: user.email,           // empty string for phone-only users
+        phoneNumber: user.phoneNumber, // empty string for email/Google users
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        provider: user.provider,
+        role: "patient",
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        // createdAt is only set on first write because of merge:true
+        createdAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    console.log(
+      "[Firestore] User document ensured:",
+      user.email || user.phoneNumber
+    );
   } catch (err) {
     console.error("[Firestore] ensureUserDocument failed:", err);
   }
@@ -92,7 +127,8 @@ export async function saveActivityLog(
 
   const log = {
     uid: user.uid,
-    userEmail: user.email,
+    userEmail: user.email,           // empty string for phone-only users
+    userPhone: user.phoneNumber,     // empty string for email/Google users
     userName: user.displayName,
     actionType,
     moduleName,
@@ -124,7 +160,8 @@ export async function saveUserData(
   const record: Record<string, unknown> = {
     ...data,
     uid: user.uid,
-    userEmail: user.email,
+    userEmail: user.email,           // empty string for phone-only users
+    userPhone: user.phoneNumber,     // empty string for email/Google users
     userName: user.displayName,
     moduleName,
     createdAt: serverTimestamp(),
