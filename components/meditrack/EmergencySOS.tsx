@@ -112,6 +112,26 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
   // User manual calling number state
   const [manualCallInput, setManualCallInput] = useState({ name: "", phone: "" });
 
+  // Auto WhatsApp Share States
+  const [whatsappShared, setWhatsappShared] = useState(false);
+  const [autoShareCountdown, setAutoShareCountdown] = useState<number | null>(null);
+  const autoShareTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Computed values
+  const mapLink = coords.latitude
+    ? `https://www.google.com/maps?q=${coords.latitude},${coords.longitude}`
+    : "";
+
+  const emergencyMessage = coords.latitude
+    ? `I need emergency help. My location: ${mapLink}. This alert was sent from MediScan AI Emergency SOS.`
+    : `I need emergency help. (Location unavailable). This alert was sent from MediScan AI Emergency SOS.`;
+
+  const encodedMessage = encodeURIComponent(emergencyMessage);
+
+  const whatsappPhoneClean = profileForm.emergencyContactPhone
+    ? profileForm.emergencyContactPhone.replace(/\D/g, "")
+    : "";
+
   // Get current user details for Firebase logging
   const uid = auth.currentUser?.uid || user.id || "anonymous";
   const userEmail = auth.currentUser?.email || user.email || "";
@@ -131,8 +151,65 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
     return () => {
       if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (autoShareTimerRef.current) clearInterval(autoShareTimerRef.current);
     };
   }, []);
+
+  // Effect to manage auto WhatsApp share on "Share Location" tab
+  useEffect(() => {
+    if (activeTab === "share") {
+      // 1. If location is not locked, auto-start location scan
+      if (!coords.latitude && locationState !== "requesting" && locationState !== "finding") {
+        startManualLocationScan();
+      }
+
+      // 2. If location is locked and not already shared, and contact is configured, start countdown
+      const cleanPhone = profileForm.emergencyContactPhone
+        ? profileForm.emergencyContactPhone.replace(/\D/g, "")
+        : "";
+
+      if (coords.latitude && cleanPhone && !whatsappShared && autoShareCountdown === null) {
+        setAutoShareCountdown(3); // 3 seconds countdown
+      }
+    } else {
+      // Reset share state and clear countdown when switching away from Share tab
+      setWhatsappShared(false);
+      setAutoShareCountdown(null);
+      if (autoShareTimerRef.current) {
+        clearInterval(autoShareTimerRef.current);
+        autoShareTimerRef.current = null;
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, coords.latitude, locationState, profileForm.emergencyContactPhone, whatsappShared]);
+
+  // Effect to handle countdown timer for auto-share redirect
+  useEffect(() => {
+    if (autoShareCountdown === null) return;
+
+    if (autoShareCountdown > 0) {
+      autoShareTimerRef.current = setTimeout(() => {
+        setAutoShareCountdown((prev) => (prev !== null ? prev - 1 : null));
+      }, 1000);
+    } else if (autoShareCountdown === 0) {
+      // Execute the redirection!
+      const cleanPhone = profileForm.emergencyContactPhone
+        ? profileForm.emergencyContactPhone.replace(/\D/g, "")
+        : "";
+      if (cleanPhone && coords.latitude) {
+        const url = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+        setWhatsappShared(true);
+        setAutoShareCountdown(null);
+        window.open(url, "_blank");
+      }
+    }
+
+    return () => {
+      if (autoShareTimerRef.current) {
+        clearTimeout(autoShareTimerRef.current);
+      }
+    };
+  }, [autoShareCountdown, profileForm.emergencyContactPhone, coords.latitude, encodedMessage]);
 
   // Handle auto-trigger SOS from Dashboard Overview
   useEffect(() => {
@@ -652,19 +729,7 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
     call(label, "manual", manualCallInput.phone);
   };
 
-  const mapLink = coords.latitude
-    ? `https://www.google.com/maps?q=${coords.latitude},${coords.longitude}`
-    : "";
-
-  const emergencyMessage = coords.latitude
-    ? `I need emergency help. My location: ${mapLink}. This alert was sent from MediScan AI Emergency SOS.`
-    : `I need emergency help. (Location unavailable). This alert was sent from MediScan AI Emergency SOS.`;
-
-  const encodedMessage = encodeURIComponent(emergencyMessage);
-
-  const whatsappPhoneClean = profileForm.emergencyContactPhone
-    ? profileForm.emergencyContactPhone.replace(/\D/g, "")
-    : "";
+  // Computed location variables are declared at the top of the component body
 
   const fallbackEmergencyNumbers = [
     { label: "National Emergency (112)", phone: "112", type: "national_emergency" },
@@ -694,158 +759,130 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
   };
 
   return (
-    <div className="space-y-6 pb-20 md:pb-6 relative z-10">
+    <div className="relative z-10 flex flex-col min-h-[calc(100dvh-80px)] md:min-h-0">
+      {/* Scrollable content area — padded from top, leaves room for bottom nav on mobile */}
+      <div className="flex-1 overflow-y-auto space-y-4 pb-36 md:pb-8 px-0 md:px-0">
+
       {/* Required Setup Warning Card */}
       {!profileForm.emergencyContactPhone && (
-        <GlassCard className="border border-yellow-500/20 bg-yellow-500/5 p-4 animate-pulse">
+        <div className="mx-4 mt-4 md:mx-0">
+        <GlassCard className="border border-yellow-500/20 bg-yellow-500/5 p-4">
           <div className="flex gap-3 items-start text-left">
             <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-bold text-white">Setup Required</p>
               <p className="text-xs text-white/60 mt-1">
-                No emergency contact saved. Add one for faster SOS. Visit the &quot;Medical Info&quot; tab to set your contact details.
+                No emergency contact saved. Visit &quot;Medical Info&quot; tab to set your contact details.
               </p>
             </div>
           </div>
         </GlassCard>
+        </div>
       )}
 
-      {/* 1. SOS Trigger Card with Hold progress ring */}
-      <GlassCard className="border border-red-500/20 bg-gradient-to-br from-red-500/10 via-transparent to-transparent shadow-[0_8px_32px_rgba(239,68,68,0.05)]">
-        <div className="text-center py-6">
-          <div className="relative mx-auto mb-6 flex h-28 w-28 items-center justify-center">
-            {/* Pulsing ring */}
+      {/* 1. SOS Trigger — Mobile Hero Block */}
+      <div className="mx-4 mt-4 md:mx-0">
+        <div className="rounded-3xl border border-red-500/20 bg-gradient-to-b from-red-950/40 via-black/30 to-transparent p-6 text-center shadow-[0_8px_40px_rgba(239,68,68,0.12)]">
+
+          {/* Big SOS hold button */}
+          <div className="relative mx-auto mb-5 flex h-36 w-36 items-center justify-center">
             {isHolding && (
-              <span className="absolute inset-0 animate-ping rounded-full bg-red-500/10 duration-1000"></span>
+              <span className="absolute inset-0 animate-ping rounded-full bg-red-500/20 duration-700" />
             )}
-            
-            {/* SVG Hold progress indicator */}
             {isHolding && (
-              <svg className="absolute inset-0 h-28 w-28 -rotate-90">
-                <circle
-                  className="text-white/10"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="transparent"
-                  r="50"
-                  cx="56"
-                  cy="56"
-                />
+              <svg className="absolute inset-0 h-36 w-36 -rotate-90">
+                <circle className="text-white/10" strokeWidth="5" stroke="currentColor" fill="transparent" r="64" cx="72" cy="72" />
                 <circle
                   className="text-red-500 transition-all duration-75"
-                  strokeWidth="4"
-                  strokeDasharray={314.16}
-                  strokeDashoffset={314.16 - (314.16 * holdProgress) / 100}
+                  strokeWidth="5"
+                  strokeDasharray={402.12}
+                  strokeDashoffset={402.12 - (402.12 * holdProgress) / 100}
                   strokeLinecap="round"
                   stroke="currentColor"
                   fill="transparent"
-                  r="50"
-                  cx="56"
-                  cy="56"
+                  r="64"
+                  cx="72"
+                  cy="72"
                 />
               </svg>
             )}
-
-            {/* Standard button triggers modal, or long press triggers Panic mode */}
             <button
               onMouseDown={startHold}
               onMouseUp={endHold}
               onMouseLeave={endHold}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                startHold();
-              }}
+              onTouchStart={(e) => { e.preventDefault(); startHold(); }}
               onTouchEnd={endHold}
-              onClick={() => {
-                if (!isPanicActive && countdown === null) {
-                  setShowConfirmModal(true);
-                }
-              }}
-              className={`relative flex h-24 w-24 flex-col items-center justify-center rounded-full border-2 border-red-400 bg-red-600 text-white font-extrabold tracking-widest transition-all duration-300 ${
-                isHolding ? "scale-95 bg-red-700" : "hover:scale-105 active:scale-95"
-              } shadow-[0_0_24px_rgba(239,68,68,0.5)]`}
+              onClick={() => { if (!isPanicActive && countdown === null) setShowConfirmModal(true); }}
+              className={`relative flex h-28 w-28 flex-col items-center justify-center rounded-full border-4 border-red-400 bg-red-600 text-white font-extrabold transition-all duration-200 ${
+                isHolding ? "scale-90 bg-red-700 border-red-300" : "active:scale-90"
+              } shadow-[0_0_40px_rgba(239,68,68,0.6)]`}
             >
-              <AlertTriangle className="h-7 w-7 mb-1" />
-              <span className="text-[10px] uppercase font-black">Hold SOS</span>
+              <AlertTriangle className="h-9 w-9 mb-1" />
+              <span className="text-[9px] uppercase font-black tracking-widest">Hold SOS</span>
             </button>
           </div>
 
-          <h2 className="text-2xl font-bold tracking-tight text-white mb-2">Emergency SOS Panic Trigger</h2>
-          <p className="text-xs text-white/50 max-w-sm mx-auto mb-4 leading-relaxed">
-            Hold the SOS button for 3 seconds or tap it once to launch Emergency Panic Mode immediately.
+          <h2 className="text-xl font-black tracking-tight text-white mb-1">Emergency SOS</h2>
+          <p className="text-xs text-white/40 max-w-xs mx-auto mb-5 leading-relaxed">
+            Hold 3 sec for instant Panic Mode, or tap to confirm.
           </p>
 
-          <div className="flex justify-center gap-3">
-            <GlassButton
-              variant="solid"
+          {/* Quick action row */}
+          <div className="flex gap-2 justify-center">
+            <button
               onClick={() => triggerPanicModeSequence()}
-              className="border border-red-500/30 text-red-200"
+              className="flex-1 max-w-[160px] rounded-2xl bg-red-600/80 border border-red-500/40 py-3 text-sm font-bold text-white active:scale-95 transition shadow-[0_4px_16px_rgba(220,38,38,0.3)]"
             >
-              Start Panic SOS
-            </GlassButton>
-            {isPanicActive && (
-              <GlassButton
-                onClick={() => {
-                  setIsPanicActive(false);
-                  setLocationState("idle");
-                  setCoords({ latitude: null, longitude: null, accuracy: null, timestamp: null });
-                  setNearbyServices([]);
-                  setCurrentEventId(null);
-                  setSelectedTarget(null);
-                }}
-              >
-                Reset
-              </GlassButton>
-            )}
+              🚨 Panic SOS
+            </button>
+            <button
+              onClick={() => call("National Emergency", "national_emergency", "112")}
+              className="flex-1 max-w-[160px] rounded-2xl bg-white/10 border border-white/10 py-3 text-sm font-bold text-white active:scale-95 transition"
+            >
+              📞 Call 112
+            </button>
           </div>
-        </div>
-      </GlassCard>
 
-      {/* 2. Emergency Auto Actions Panel (Panic Mode Checklist) */}
+          {isPanicActive && (
+            <button
+              onClick={() => {
+                setIsPanicActive(false);
+                setLocationState("idle");
+                setCoords({ latitude: null, longitude: null, accuracy: null, timestamp: null });
+                setNearbyServices([]);
+                setCurrentEventId(null);
+                setSelectedTarget(null);
+              }}
+              className="mt-3 text-xs text-white/40 underline"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Emergency Auto Actions Panel */}
       {isPanicActive && (
+        <div className="mx-4 md:mx-0">
         <GlassCard className="border border-red-500/20 bg-red-500/[0.02] text-left">
           <h4 className="text-sm font-bold uppercase tracking-wider text-white/60 mb-4 flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin text-red-500" /> Emergency Auto Actions
           </h4>
           <div className="space-y-4">
             {[
-              {
-                label: "Location Lock Requested",
-                status: locationStep,
-                details: coords.latitude ? `Lat: ${coords.latitude.toFixed(6)}, Lng: ${coords.longitude?.toFixed(6)}` : "Acquiring coordinates..."
-              },
-              {
-                label: "Nearby Hospitals API Loaded",
-                status: nearbyStep,
-                details: nearbyServices.length > 0 ? `${nearbyServices.length} facilities detected within 10km` : "Searching nearest providers..."
-              },
-              {
-                label: "SOS Event Logs Registered",
-                status: firestoreStep,
-                details: currentEventId ? `Database Event reference: ${currentEventId}` : "Recording event..."
-              },
-              {
-                label: `Best Call Target Selected: ${selectedTarget?.name || "Evaluating"}`,
-                status: callStep,
-                details: selectedTarget ? `Priority target phone: ${selectedTarget.phone}` : "Selecting priority target..."
-              },
-              {
-                label: "Phone Dialer Triggered",
-                status: dialerStep,
-                details: selectedTarget ? `Opening tel:${selectedTarget.phone} on browser dialer` : "Launching dialer..."
-              },
-              {
-                label: "Location Alert Message Formatted",
-                status: msgStep,
-                details: "Prepared details for SMS and WhatsApp shares"
-              }
+              { label: "Location Lock Requested", status: locationStep, details: coords.latitude ? `Lat: ${coords.latitude.toFixed(6)}, Lng: ${coords.longitude?.toFixed(6)}` : "Acquiring coordinates..." },
+              { label: "Nearby Hospitals API Loaded", status: nearbyStep, details: nearbyServices.length > 0 ? `${nearbyServices.length} facilities detected within 10km` : "Searching nearest providers..." },
+              { label: "SOS Event Logs Registered", status: firestoreStep, details: currentEventId ? `Database Event reference: ${currentEventId}` : "Recording event..." },
+              { label: `Best Call Target Selected: ${selectedTarget?.name || "Evaluating"}`, status: callStep, details: selectedTarget ? `Priority target phone: ${selectedTarget.phone}` : "Selecting priority target..." },
+              { label: "Phone Dialer Triggered", status: dialerStep, details: selectedTarget ? `Opening tel:${selectedTarget.phone} on browser dialer` : "Launching dialer..." },
+              { label: "Location Alert Message Formatted", status: msgStep, details: "Prepared details for SMS and WhatsApp shares" }
             ].map((step, idx) => (
               <div key={idx} className="flex items-start gap-3 border-b border-white/5 pb-2 last:border-0 last:pb-0">
                 <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
                   {step.status === "loading" && <Loader2 className="h-4 w-4 animate-spin text-red-400" />}
                   {step.status === "success" && <CheckCircle2 className="h-5 w-5 text-emerald-400" />}
                   {step.status === "error" && <X className="h-5 w-5 text-red-500" />}
-                  {step.status === "pending" && <span className="h-2 w-2 rounded-full bg-white/20"></span>}
+                  {step.status === "pending" && <span className="h-2 w-2 rounded-full bg-white/20" />}
                 </div>
                 <div>
                   <p className="text-xs font-bold text-white">{step.label}</p>
@@ -855,79 +892,81 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
             ))}
           </div>
         </GlassCard>
+        </div>
       )}
 
-      {/* 3. Location Details Card (When Found) */}
+      {/* 3. Location Details Card */}
       {locationState === "found" && coords.latitude !== null && coords.longitude !== null && (
+        <div className="mx-4 md:mx-0">
         <GlassCard className="border border-emerald-500/20 bg-emerald-500/5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
-            <div className="flex items-start gap-3">
-              <Compass className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-white">Current Coordinates Lock</p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1.5 text-xs text-white/60">
-                  <p>Latitude: <span className="font-mono text-white">{coords.latitude.toFixed(6)}</span></p>
-                  <p>Longitude: <span className="font-mono text-white">{coords.longitude.toFixed(6)}</span></p>
-                  <p>Accuracy: <span className="text-white">+/- {coords.accuracy?.toFixed(1)} meters</span></p>
-                  <p>Acquired: <span className="text-white">{coords.timestamp ? new Date(coords.timestamp).toLocaleTimeString() : ""}</span></p>
-                </div>
-              </div>
+          <div className="flex flex-col gap-3 text-left">
+            <div className="flex items-center gap-2">
+              <Compass className="h-4 w-4 text-emerald-400 shrink-0" />
+              <p className="text-sm font-semibold text-white">Location Locked ✓</p>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-white/60">
+              <p>Lat: <span className="font-mono text-white">{coords.latitude.toFixed(5)}</span></p>
+              <p>Lng: <span className="font-mono text-white">{coords.longitude.toFixed(5)}</span></p>
+              <p>Accuracy: <span className="text-white">±{coords.accuracy?.toFixed(0)}m</span></p>
+              <p>Time: <span className="text-white">{coords.timestamp ? new Date(coords.timestamp).toLocaleTimeString() : ""}</span></p>
             </div>
             <a
               href={mapLink}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-500 hover:scale-105 active:scale-95 shadow-[0_4px_12px_rgba(16,185,129,0.2)] shrink-0 self-start sm:self-center"
+              className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-2.5 text-xs font-bold text-white active:scale-95 transition"
             >
-              <MapPin className="h-3.5 w-3.5" />
-              Open in Google Maps
+              <MapPin className="h-3.5 w-3.5" /> Open in Google Maps
             </a>
           </div>
         </GlassCard>
+        </div>
       )}
 
-      {/* Location Denied Warning Message */}
+      {/* Location Denied */}
       {(locationState === "denied" || locationState === "unavailable") && (
+        <div className="mx-4 md:mx-0">
         <GlassCard className="border border-red-500/30 bg-red-500/5">
           <div className="flex gap-3 items-start text-left">
             <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-bold text-white">Location Services Disabled</p>
               <p className="text-xs text-white/60 mt-1">
-                Nearby Help and Share Location tools require location access. Fallback manual call numbers, ambulance hotlines, and your emergency contacts remain fully accessible below.
+                Enable location to find nearby hospitals. Emergency numbers below are still accessible.
               </p>
             </div>
           </div>
         </GlassCard>
+        </div>
       )}
 
-      {/* 4. Tab Navigation */}
-      <div className="flex gap-1 overflow-x-auto rounded-2xl bg-white/5 p-1.5 scrollbar-thin">
-        {(
-          [
+      {/* Tab Content — no extra padding, tabs at bottom */}
+      <div className="px-4 md:px-0">
+
+        {/* Desktop-only horizontal tab nav */}
+        <div className="hidden md:flex gap-1 rounded-2xl bg-white/5 p-1.5 mb-4">
+          {([
             { id: "nearby", label: "Nearby Help" },
             { id: "contacts", label: "Emergency Contacts" },
             { id: "manual", label: "Manual Call" },
             { id: "share", label: "Share Location" },
             { id: "medical", label: "Medical Info" },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            className={`flex-1 min-w-[100px] text-center rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition-all duration-300 ${
-              activeTab === t.id
-                ? "bg-red-500/20 text-red-300 border border-red-500/20"
-                : "text-white/50 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+          ] as const).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`flex-1 text-center rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition-all duration-300 ${
+                activeTab === t.id
+                  ? "bg-red-500/20 text-red-300 border border-red-500/20"
+                  : "text-white/50 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-      {/* 5. Tab Content Sections */}
-      <div className="mt-4">
+
         {/* Nearby Help Section */}
         {activeTab === "nearby" && (
           <div className="space-y-6">
@@ -1753,15 +1792,94 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
         {activeTab === "share" && (
           <div className="space-y-4 text-left">
             {!coords.latitude ? (
-              <div className="text-center py-10 bg-white/5 rounded-2xl border border-white/5">
-                <MapPin className="mx-auto h-12 w-12 text-white/20 mb-3" strokeWidth={1.25} />
-                <h3 className="text-base font-semibold text-white">Location Lock Required</h3>
-                <p className="text-xs text-white/50 max-w-xs mx-auto mt-1 leading-relaxed">
-                  Start the Emergency SOS flow to acquire GPS coordinate mappings before sharing your location.
-                </p>
-              </div>
+              locationState === "requesting" || locationState === "finding" ? (
+                <div className="text-center py-12 bg-white/5 rounded-3xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] animate-in fade-in duration-300">
+                  <Loader2 className="mx-auto h-10 w-10 text-red-500 animate-spin mb-4" />
+                  <h3 className="text-base font-bold text-white">Acquiring Live GPS Location...</h3>
+                  <p className="text-xs text-white/50 max-w-xs mx-auto mt-1.5 leading-relaxed">
+                    Locking precise coordinates. Once locked, location will automatically share to WhatsApp.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-10 bg-white/5 rounded-2xl border border-white/5">
+                  <MapPin className="mx-auto h-12 w-12 text-white/20 mb-3" strokeWidth={1.25} />
+                  <h3 className="text-base font-semibold text-white">Location Lock Required</h3>
+                  <p className="text-xs text-white/50 max-w-xs mx-auto mt-1 leading-relaxed">
+                    Enable location permissions or tap to scan coordinates for sharing.
+                  </p>
+                  <button
+                    onClick={startManualLocationScan}
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-red-500"
+                  >
+                    <Compass className="h-4 w-4 animate-pulse" /> Scan Location
+                  </button>
+                </div>
+              )
             ) : (
               <GlassCard className="border border-white/5 space-y-4">
+                {/* Auto Share Status Alert */}
+                {profileForm.emergencyContactPhone ? (
+                  autoShareCountdown !== null ? (
+                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex flex-col items-center text-center shadow-[0_4px_20px_rgba(16,185,129,0.1)] animate-in slide-in-from-top-4 duration-300">
+                      <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 mb-3">
+                        <Share2 className="h-6 w-6 animate-pulse" />
+                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-black">
+                          {autoShareCountdown}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-white">Auto-sharing Live Location</p>
+                      <p className="text-xs text-white/60 mt-1 max-w-xs leading-normal">
+                        Opening WhatsApp to message <span className="text-emerald-400 font-semibold">{profileForm.emergencyContactName}</span> in {autoShareCountdown} seconds...
+                      </p>
+                      <div className="mt-4 flex gap-2 w-full justify-center">
+                        <button
+                          onClick={() => {
+                            if (autoShareTimerRef.current) clearTimeout(autoShareTimerRef.current);
+                            setAutoShareCountdown(null);
+                            setWhatsappShared(true);
+                          }}
+                          className="rounded-xl bg-white/10 border border-white/5 px-4 py-1.5 text-xs font-bold text-white/80 transition hover:bg-white/15"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (autoShareTimerRef.current) clearTimeout(autoShareTimerRef.current);
+                            setAutoShareCountdown(null);
+                            setWhatsappShared(true);
+                            window.open(`https://wa.me/${whatsappPhoneClean}?text=${encodedMessage}`, "_blank");
+                          }}
+                          className="rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-500"
+                        >
+                          Send Now
+                        </button>
+                      </div>
+                    </div>
+                  ) : whatsappShared ? (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center gap-3 text-left animate-in fade-in duration-300">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-white">Auto-Share Action Processed</p>
+                        <p className="text-[10px] text-white/50 mt-0.5 leading-normal">
+                          WhatsApp redirect has run. You can resend manually if needed.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null
+                ) : (
+                  <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/5 p-4 flex items-start gap-3 text-left">
+                    <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-white">Auto WhatsApp Share Unavailable</p>
+                      <p className="text-[10px] text-white/60 mt-1 leading-normal">
+                        No primary contact phone number saved. Configure your emergency contact in the <strong>Profile</strong> tab to enable automatic WhatsApp alerts.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <SectionTitle icon={<Share2 className="h-5 w-5 text-white" strokeWidth={1.5} />}>
                   Share Coordinates Map Link
                 </SectionTitle>
@@ -2018,17 +2136,20 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
         )}
       </div>
 
-      {/* 6. Safety Disclaimer */}
+      </div>{/* end tab content px wrapper */}
+
+      {/* Safety Disclaimer */}
+      <div className="mx-4 md:mx-0">
       <GlassCard className="border border-white/5 bg-white/5">
         <div className="flex gap-2.5 items-start text-left">
-          <Info className="h-4.5 w-4.5 text-white/40 shrink-0 mt-0.5" />
+          <Info className="h-4 w-4 text-white/40 shrink-0 mt-0.5" />
           <p className="text-[11px] text-white/50 leading-relaxed">
             Emergency SOS helps you call support and share your location. Browser security requires final confirmation for calls/messages. In life-threatening emergencies, call your local emergency number immediately.
           </p>
         </div>
       </GlassCard>
+      </div>
 
-      {/* 7. Tap Confirmation Modal (When user clicks/taps SOS button) */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
           <div className="liquid-glass-strong w-full max-w-md rounded-3xl border border-red-500/20 p-6 shadow-[0_20px_50px_rgba(239,68,68,0.15)] animate-in fade-in zoom-in-95 duration-200 text-center">
@@ -2089,15 +2210,32 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
         </div>
       )}
 
-      {/* 9. Sticky Bottom Call 112 Button on Mobile */}
-      <div className="fixed bottom-4 left-4 right-4 z-40 md:hidden">
-        <button
-          onClick={() => call("National Emergency (112) - Sticky Mobile Shortcut", "national_emergency", "112")}
-          className="flex w-full items-center justify-center gap-2.5 rounded-full bg-red-600 py-3.5 text-base font-bold text-white shadow-[0_4px_20px_rgba(220,38,38,0.5)] border border-red-500 transition hover:bg-red-500 active:scale-95"
-        >
-          <Phone className="h-5 w-5 animate-pulse" />
-          Call National Emergency (112)
-        </button>
+      {/* Bottom Native App Tab Bar — mobile only */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-black/80 backdrop-blur-xl border-t border-white/10 safe-area-inset-bottom">
+        <div className="flex items-center justify-around px-2 py-2">
+          {([
+            { id: "nearby", label: "Nearby", icon: "🏥" },
+            { id: "contacts", label: "Contacts", icon: "👤" },
+            { id: "manual", label: "Call", icon: "📞" },
+            { id: "share", label: "Share", icon: "📍" },
+            { id: "medical", label: "Profile", icon: "🩺" },
+          ] as const).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-2xl transition-all ${
+                activeTab === t.id
+                  ? "bg-red-500/20 text-red-300"
+                  : "text-white/40"
+              }`}
+            >
+              <span className="text-xl leading-none">{t.icon}</span>
+              <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                activeTab === t.id ? "text-red-300" : "text-white/40"
+              }`}>{t.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
