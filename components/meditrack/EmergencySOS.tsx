@@ -117,12 +117,14 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
   const userEmail = auth.currentUser?.email || user.email || "";
   const userName = auth.currentUser?.displayName || user.name || "User";
 
-  // Load Contacts and Profile on Mount
+  // Load Contacts, Profile, and auto-fetch nearby hospitals on Mount
   useEffect(() => {
     const saved = storageService.getEmergencyContacts();
     setContacts(saved);
     loadEmergencyProfile();
-  }, [uid]);
+    startManualLocationScan();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Clean intervals on unmount
   useEffect(() => {
@@ -948,18 +950,9 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
         {activeTab === "nearby" && (
           <div className="space-y-6">
             {locationState === "idle" ? (
-              <div className="text-center py-10 bg-white/5 rounded-2xl border border-white/5">
-                <Compass className="mx-auto h-12 w-12 text-white/20 mb-3" strokeWidth={1.25} />
-                <h3 className="text-base font-semibold text-white">Location Needed</h3>
-                <p className="text-xs text-white/50 max-w-xs mx-auto mt-1 leading-relaxed">
-                  Start the Emergency SOS process to scan for hospitals, health clinics, and ambulance facilities within a 10km radius.
-                </p>
-                <GlassButton
-                  onClick={startManualLocationScan}
-                  className="mt-4 border border-red-500/30 text-red-200"
-                >
-                  Start Location Scan
-                </GlassButton>
+              <div className="flex items-center gap-3 justify-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin text-red-500" />
+                <p className="text-sm font-semibold text-white/80">Locating nearby hospitals...</p>
               </div>
             ) : locationState === "requesting" || locationState === "finding" || loadingServices ? (
               <div className="space-y-4">
