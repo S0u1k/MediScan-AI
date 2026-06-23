@@ -116,14 +116,25 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
   const [whatsappShared, setWhatsappShared] = useState(false);
   const [autoShareCountdown, setAutoShareCountdown] = useState<number | null>(null);
   const autoShareTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+
+  // Get current user details for Firebase logging
+  const uid = auth.currentUser?.uid || user.id || "anonymous";
+  const userEmail = auth.currentUser?.email || user.email || "";
+  const userName = auth.currentUser?.displayName || user.name || "User";
 
   // Computed values
   const mapLink = coords.latitude
     ? `https://www.google.com/maps?q=${coords.latitude},${coords.longitude}`
     : "";
 
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const liveTrackingLink = currentEventId
+    ? `${origin}/emergency/track?uid=${uid}&event=${currentEventId}`
+    : "";
+
   const emergencyMessage = coords.latitude
-    ? `I need emergency help. My location: ${mapLink}. This alert was sent from MediScan AI Emergency SOS.`
+    ? `I need emergency help. Follow my LIVE tracking location: ${liveTrackingLink || mapLink}. This alert was sent from MediScan AI Emergency SOS.`
     : `I need emergency help. (Location unavailable). This alert was sent from MediScan AI Emergency SOS.`;
 
   const encodedMessage = encodeURIComponent(emergencyMessage);
@@ -131,11 +142,6 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
   const whatsappPhoneClean = profileForm.emergencyContactPhone
     ? profileForm.emergencyContactPhone.replace(/\D/g, "")
     : "";
-
-  // Get current user details for Firebase logging
-  const uid = auth.currentUser?.uid || user.id || "anonymous";
-  const userEmail = auth.currentUser?.email || user.email || "";
-  const userName = auth.currentUser?.displayName || user.name || "User";
 
   // Load Contacts, Profile, and auto-fetch nearby hospitals on Mount
   useEffect(() => {
@@ -407,11 +413,100 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
     }, 1000);
   };
 
+  const startLocationWatch = (eventId: string | null) => {
+    if (watchIdRef.current !== null) return; // Already watching
+
+    if (!navigator.geolocation) {
+      console.warn("Geolocation watch not supported on this browser.");
+      return;
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const acc = position.coords.accuracy;
+        const timeStr = new Date(position.timestamp).toISOString();
+
+        setCoords({
+          latitude: lat,
+          longitude: lng,
+          accuracy: acc,
+          timestamp: timeStr,
+        });
+        setLocationState("found");
+
+        const activeEventId = eventId || currentEventId;
+        if (activeEventId) {
+          try {
+            const eventDocRef = doc(db, "users", uid, "emergencyEvents", activeEventId);
+            await setDoc(
+              eventDocRef,
+              {
+                latitude: lat,
+                longitude: lng,
+                accuracy: acc,
+                mapLink: `https://www.google.com/maps?q=${lat},${lng}`,
+                status: "tracking_active",
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          } catch (err) {
+            console.error("[Tracking Watch] Firestore sync failed:", err);
+          }
+        }
+      },
+      (error) => {
+        console.error("[Tracking Watch] Position acquisition error:", error);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const stopLocationWatch = () => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  };
+
+  const initializeTrackingEvent = async () => {
+    if (currentEventId) return currentEventId;
+    try {
+      const eventDocRef = doc(collection(db, "users", uid, "emergencyEvents"));
+      const eventId = eventDocRef.id;
+      setCurrentEventId(eventId);
+
+      // Create placeholder event log in Firestore
+      await setDoc(eventDocRef, {
+        uid,
+        userEmail,
+        userName,
+        mode: "live_share",
+        latitude: coords.latitude || null,
+        longitude: coords.longitude || null,
+        accuracy: coords.accuracy || null,
+        status: "tracking_active",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Start location watch live for this new event
+      startLocationWatch(eventId);
+      return eventId;
+    } catch (err) {
+      console.error("[EmergencySOS] Error creating live share event:", err);
+      return null;
+    }
+  };
+
   // Cancel Panic SOS trigger
   const cancelPanicMode = async () => {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     setCountdown(null);
     setIsPanicActive(false);
+    stopLocationWatch();
 
     if (currentEventId) {
       try {
@@ -467,6 +562,9 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
           mapLink: `https://www.google.com/maps?q=${lat},${lng}`,
         });
 
+        // Start watching position live for active tracking
+        startLocationWatch(eventId);
+
         // Resolve nearby hospitals
         setNearbyStep("loading");
         await fetchNearbyHospitalsPanic(lat, lng, eventId, acc);
@@ -515,6 +613,7 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
 
         setCoords({ latitude: lat, longitude: lng, accuracy: acc, timestamp: timeStr });
         setLocationState("found");
+        startLocationWatch(currentEventId);
 
         try {
           const response = await fetch("/api/emergency/nearby", {
@@ -852,6 +951,7 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
                 setNearbyServices([]);
                 setCurrentEventId(null);
                 setSelectedTarget(null);
+                stopLocationWatch();
               }}
               className="mt-3 text-xs text-white/40 underline"
             >
