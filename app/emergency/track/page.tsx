@@ -110,6 +110,21 @@ function TrackingDashboard() {
   }
 
   const { latitude, longitude, accuracy, userName, status } = eventData;
+
+  if (status === "sharing_disabled" || status === "cancelled") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-950 text-white text-center">
+        <GlassCard className="max-w-md border-yellow-500/20 p-8 space-y-4">
+          <ShieldAlert className="h-16 w-16 text-yellow-500 mx-auto animate-pulse" />
+          <h1 className="text-xl font-bold text-white">Tracking Stopped</h1>
+          <p className="text-xs text-white/60 leading-relaxed">
+            The user has disabled location sharing. Real-time path updates are no longer being shared for security and privacy.
+          </p>
+        </GlassCard>
+      </div>
+    );
+  }
+
   const mapEmbedUrl = latitude && longitude
     ? `https://maps.google.com/maps?q=${latitude},${longitude}&t=&z=16&ie=UTF8&iwloc=&output=embed`
     : null;

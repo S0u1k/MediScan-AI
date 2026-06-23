@@ -158,36 +158,26 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
       if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       if (autoShareTimerRef.current) clearInterval(autoShareTimerRef.current);
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     };
   }, []);
 
-  // Effect to manage auto WhatsApp share on "Share Location" tab
+  // Effect to manage global auto WhatsApp share upon location lock
   useEffect(() => {
-    if (activeTab === "share") {
-      // 1. If location is not locked, auto-start location scan
-      if (!coords.latitude && locationState !== "requesting" && locationState !== "finding") {
-        startManualLocationScan();
-      }
+    const cleanPhone = profileForm.emergencyContactPhone
+      ? profileForm.emergencyContactPhone.replace(/\D/g, "")
+      : "";
 
-      // 2. If location is locked and not already shared, and contact is configured, start countdown
-      const cleanPhone = profileForm.emergencyContactPhone
-        ? profileForm.emergencyContactPhone.replace(/\D/g, "")
-        : "";
-
-      if (coords.latitude && cleanPhone && !whatsappShared && autoShareCountdown === null) {
-        setAutoShareCountdown(3); // 3 seconds countdown
-      }
-    } else {
-      // Reset share state and clear countdown when switching away from Share tab
-      setWhatsappShared(false);
-      setAutoShareCountdown(null);
-      if (autoShareTimerRef.current) {
-        clearInterval(autoShareTimerRef.current);
-        autoShareTimerRef.current = null;
-      }
+    // Trigger auto share if coordinates are locked, emergency contact is set, and not already shared
+    if (coords.latitude && cleanPhone && !whatsappShared && autoShareCountdown === null) {
+      initializeTrackingEvent().then((eventId) => {
+        if (eventId) {
+          setAutoShareCountdown(3); // Start 3 seconds countdown
+        }
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, coords.latitude, locationState, profileForm.emergencyContactPhone, whatsappShared]);
+  }, [coords.latitude, profileForm.emergencyContactPhone, whatsappShared]);
 
   // Effect to handle countdown timer for auto-share redirect
   useEffect(() => {
@@ -499,6 +489,31 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
       console.error("[EmergencySOS] Error creating live share event:", err);
       return null;
     }
+  };
+
+  const cancelLocationSharing = async () => {
+    stopLocationWatch();
+    if (currentEventId) {
+      try {
+        const eventDocRef = doc(db, "users", uid, "emergencyEvents", currentEventId);
+        await setDoc(
+          eventDocRef,
+          {
+            status: "sharing_disabled",
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (err) {
+        console.error("[EmergencySOS] Error cancelling location sharing:", err);
+      }
+    }
+    setCoords({ latitude: null, longitude: null, accuracy: null, timestamp: null });
+    setLocationState("idle");
+    setCurrentEventId(null);
+    setWhatsappShared(false);
+    setAutoShareCountdown(null);
+    alert("Live location sharing has been disabled.");
   };
 
   // Cancel Panic SOS trigger
@@ -862,6 +877,52 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
       {/* Scrollable content area — padded from top, leaves room for bottom nav on mobile */}
       <div className="flex-1 overflow-y-auto space-y-4 pb-36 md:pb-8 px-0 md:px-0">
 
+      {/* Global Auto WhatsApp Share Countdown Banner */}
+      {profileForm.emergencyContactPhone && autoShareCountdown !== null && (
+        <div className="mx-4 mt-4 md:mx-0">
+          <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-left shadow-[0_8px_32px_rgba(16,185,129,0.15)] animate-in slide-in-from-top-4 duration-300">
+            <div className="flex items-center gap-3.5">
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+                <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500/25 duration-1000" />
+                <Share2 className="h-6 w-6 animate-pulse" />
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-black">
+                  {autoShareCountdown}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-black tracking-tight text-white">Auto-sharing Live Location</p>
+                <p className="text-xs text-white/70 mt-0.5 leading-normal">
+                  Opening WhatsApp to alert <span className="font-semibold text-emerald-400">{profileForm.emergencyContactName}</span> in {autoShareCountdown}s...
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto justify-end shrink-0">
+              <button
+                onClick={() => {
+                  if (autoShareTimerRef.current) clearTimeout(autoShareTimerRef.current);
+                  setAutoShareCountdown(null);
+                  setWhatsappShared(true);
+                }}
+                className="flex-1 sm:flex-none rounded-xl bg-white/10 border border-white/5 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/15"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (autoShareTimerRef.current) clearTimeout(autoShareTimerRef.current);
+                  setAutoShareCountdown(null);
+                  setWhatsappShared(true);
+                  window.open(`https://wa.me/${whatsappPhoneClean}?text=${encodedMessage}`, "_blank");
+                }}
+                className="flex-1 sm:flex-none rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-500 shadow-[0_4px_12px_rgba(16,185,129,0.2)]"
+              >
+                Send Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Required Setup Warning Card */}
       {!profileForm.emergencyContactPhone && (
         <div className="mx-4 mt-4 md:mx-0">
@@ -1001,8 +1062,11 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
         <GlassCard className="border border-emerald-500/20 bg-emerald-500/5">
           <div className="flex flex-col gap-3 text-left">
             <div className="flex items-center gap-2">
-              <Compass className="h-4 w-4 text-emerald-400 shrink-0" />
-              <p className="text-sm font-semibold text-white">Location Locked ✓</p>
+              <Compass className="h-4 w-4 text-emerald-400 shrink-0 animate-spin" style={{ animationDuration: '6s' }} />
+              <p className="text-sm font-semibold text-white flex items-center gap-2">
+                Live Tracking Active
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-white/60">
               <p>Lat: <span className="font-mono text-white">{coords.latitude.toFixed(5)}</span></p>
@@ -1010,14 +1074,22 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
               <p>Accuracy: <span className="text-white">±{coords.accuracy?.toFixed(0)}m</span></p>
               <p>Time: <span className="text-white">{coords.timestamp ? new Date(coords.timestamp).toLocaleTimeString() : ""}</span></p>
             </div>
-            <a
-              href={mapLink}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-2.5 text-xs font-bold text-white active:scale-95 transition"
-            >
-              <MapPin className="h-3.5 w-3.5" /> Open in Google Maps
-            </a>
+            <div className="flex gap-2">
+              <a
+                href={mapLink}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-2.5 text-xs font-bold text-white active:scale-95 transition hover:bg-emerald-500"
+              >
+                <MapPin className="h-3.5 w-3.5" /> Google Maps
+              </a>
+              <button
+                onClick={cancelLocationSharing}
+                className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-red-600/20 border border-red-500/30 py-2.5 text-xs font-bold text-red-300 hover:bg-red-600/30 transition active:scale-95"
+              >
+                <X className="h-3.5 w-3.5" /> Stop Sharing
+              </button>
+            </div>
           </div>
         </GlassCard>
         </div>
@@ -2010,6 +2082,15 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
                       <Share2 className="h-4 w-4" /> Web Share
                     </button>
                   )}
+                </div>
+
+                <div className="border-t border-white/5 pt-3.5 mt-1 text-center">
+                  <button
+                    onClick={cancelLocationSharing}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-red-600/10 border border-red-500/20 py-2.5 text-xs font-bold text-red-400 hover:bg-red-600/20 transition active:scale-95"
+                  >
+                    <X className="h-4 w-4" /> Stop Sharing & Disable Live Link
+                  </button>
                 </div>
 
                 <div className="space-y-3 mt-4">
