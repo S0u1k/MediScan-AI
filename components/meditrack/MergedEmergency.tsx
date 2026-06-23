@@ -17,6 +17,8 @@ const PatientPriority = dynamic(() => import("./PatientPriority").then((m) => m.
 
 interface MergedEmergencyProps {
   user: UserProfile;
+  autoTriggerSos?: boolean;
+  onSosTriggered?: () => void;
 }
 
 const subTabs = [
@@ -26,7 +28,7 @@ const subTabs = [
 
 type SubTab = (typeof subTabs)[number]["id"];
 
-export function MergedEmergency({ user }: MergedEmergencyProps) {
+export function MergedEmergency({ user, autoTriggerSos, onSosTriggered }: MergedEmergencyProps) {
   const [sub, setSub] = useState<SubTab>("sos");
 
   return (
@@ -50,7 +52,13 @@ export function MergedEmergency({ user }: MergedEmergencyProps) {
       </div>
 
       {/* Content */}
-      {sub === "sos" && <EmergencySOS user={user} />}
+      {sub === "sos" && (
+        <EmergencySOS
+          user={user}
+          autoTriggerSos={autoTriggerSos}
+          onSosTriggered={onSosTriggered}
+        />
+      )}
       {sub === "priority" && <PatientPriority />}
     </div>
   );

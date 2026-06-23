@@ -25,12 +25,18 @@ interface MergedOverviewProps {
   user: UserProfile;
   onNavigate: (tab: DashboardTab) => void;
   onUpdateProfile?: (profile: UserProfile) => void;
+  onStartEmergencySos?: () => void;
 }
 
-export function MergedOverview({ user, onNavigate, onUpdateProfile }: MergedOverviewProps) {
+export function MergedOverview({ user, onNavigate, onUpdateProfile, onStartEmergencySos }: MergedOverviewProps) {
   return (
     <div className="space-y-6">
-      <DashboardOverview user={user} onNavigate={onNavigate} onUpdateProfile={onUpdateProfile} />
+      <DashboardOverview
+        user={user}
+        onNavigate={onNavigate}
+        onUpdateProfile={onUpdateProfile}
+        onStartEmergencySos={onStartEmergencySos}
+      />
       <div className="space-y-6">
         <HealthStats />
         <HealthAnalytics />

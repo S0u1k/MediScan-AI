@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, ArrowRight, Bone, Droplets, Heart, Pill, ScanLine, Sparkles } from "lucide-react";
+import { Activity, AlertTriangle, ArrowRight, Bone, Droplets, Heart, Pill, ScanLine, Sparkles } from "lucide-react";
 import { storageService, type UserProfile } from "@/lib/storage";
 import { GlassCard } from "./ui";
 import { DataExport } from "./DataExport";
@@ -11,14 +11,16 @@ interface DashboardOverviewProps {
   user: UserProfile;
   onNavigate: (tab: DashboardTab) => void;
   onUpdateProfile?: (profile: UserProfile) => void;
+  onStartEmergencySos?: () => void;
 }
 
-export function DashboardOverview({ user, onNavigate, onUpdateProfile }: DashboardOverviewProps) {
+export function DashboardOverview({ user, onNavigate, onUpdateProfile, onStartEmergencySos }: DashboardOverviewProps) {
   const [medicineStats, setMedicineStats] = useState({ taken: 0, total: 0, percentage: 0 });
   const [displayName, setDisplayName] = useState(user.name);
   const [draftName, setDraftName] = useState(user.name);
   const [editingName, setEditingName] = useState(false);
   const [water, setWater] = useState({ amount: 0, goal: 2500 });
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     setMedicineStats(storageService.getMedicationAdherenceStats());
@@ -136,6 +138,74 @@ export function DashboardOverview({ user, onNavigate, onUpdateProfile }: Dashboa
           </div>
         ))}
       </div>
+
+      {/* Premium Emergency SOS landing card */}
+      <GlassCard className="border border-red-500/20 bg-gradient-to-r from-red-500/10 via-transparent to-transparent shadow-[0_8px_32px_rgba(239,68,68,0.05)]">
+        <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
+          <div className="flex items-center gap-5">
+            <div className="relative shrink-0">
+              {/* Outer pulsing rings */}
+              <span className="absolute -inset-2.5 animate-ping rounded-full bg-red-500/20 opacity-75 duration-1000"></span>
+              <span className="absolute -inset-1 animate-pulse rounded-full bg-red-500/30"></span>
+              {/* Main SOS button */}
+              <button
+                onClick={() => setShowConfirmModal(true)}
+                className="relative flex h-16 w-16 flex-col items-center justify-center rounded-full border border-red-400 bg-red-600 text-white font-bold tracking-wider hover:bg-red-500 hover:scale-105 active:scale-95 transition duration-300 shadow-[0_0_20px_rgba(239,68,68,0.4)]"
+              >
+                <AlertTriangle className="h-4 w-4 animate-bounce mb-0.5" />
+                <span className="text-xs uppercase font-extrabold tracking-widest">SOS</span>
+              </button>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white tracking-tight">
+                Emergency assistance with location sharing
+              </h3>
+              <p className="text-xs text-white/40 mt-1 max-w-lg leading-relaxed">
+                In life-threatening emergencies, call official emergency services immediately.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowConfirmModal(true)}
+            className="w-full md:w-auto rounded-full bg-red-500/20 px-6 py-2.5 text-sm font-semibold text-red-200 border border-red-500/30 transition-all duration-300 hover:bg-red-500/35 hover:scale-[1.03] active:scale-[0.97]"
+          >
+            Trigger Emergency SOS
+          </button>
+        </div>
+      </GlassCard>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div className="liquid-glass-strong w-full max-w-md rounded-3xl border border-red-500/20 p-6 shadow-[0_20px_50px_rgba(239,68,68,0.15)] animate-in fade-in zoom-in-95 duration-200 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+              <AlertTriangle className="h-7 w-7" />
+            </div>
+            <h3 className="text-xl font-bold text-white">Start Emergency SOS?</h3>
+            <p className="mt-3 text-sm text-white/70 leading-relaxed">
+              Do you want to start Emergency SOS? This will request your location and help you call nearby emergency support.
+            </p>
+            <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  onStartEmergencySos?.();
+                }}
+                className="w-full sm:w-auto rounded-full bg-red-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-500 hover:scale-105 active:scale-95 shadow-[0_4px_12px_rgba(220,38,38,0.3)]"
+              >
+                Start Emergency SOS
+              </button>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="w-full sm:w-auto rounded-full bg-white/10 px-6 py-2.5 text-sm font-bold text-white/80 transition hover:bg-white/15 hover:scale-105 active:scale-95 border border-white/5"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
  
       <div className="grid gap-6 lg:grid-cols-2">
         <GlassCard>

@@ -111,6 +111,7 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [autoTriggerSos, setAutoTriggerSos] = useState(false);
 
   useEffect(() => {
     const p = storageService.getOrCreateUserProfile(email, name);
@@ -153,7 +154,17 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
   const renderContent = () => {
     switch (activeTab) {
       case "overview":
-        return <MergedOverview user={profile} onNavigate={setActiveTab} onUpdateProfile={setProfile} />;
+        return (
+          <MergedOverview
+            user={profile}
+            onNavigate={setActiveTab}
+            onUpdateProfile={setProfile}
+            onStartEmergencySos={() => {
+              setAutoTriggerSos(true);
+              setActiveTab("emergency");
+            }}
+          />
+        );
       case "medicine":
         return <MedicineReminders />;
       case "scanner":
@@ -167,7 +178,13 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
       case "water":
         return <WaterIntake />;
       case "emergency":
-        return <MergedEmergency user={profile} />;
+        return (
+          <MergedEmergency
+            user={profile}
+            autoTriggerSos={autoTriggerSos}
+            onSosTriggered={() => setAutoTriggerSos(false)}
+          />
+        );
       case "chat":
         return <AIChatbot user={profile} />;
       case "your-report":
@@ -179,7 +196,16 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
       case "contact":
         return <ContactUs />;
       default:
-        return <MergedOverview user={profile} onNavigate={setActiveTab} />;
+        return (
+          <MergedOverview
+            user={profile}
+            onNavigate={setActiveTab}
+            onStartEmergencySos={() => {
+              setAutoTriggerSos(true);
+              setActiveTab("emergency");
+            }}
+          />
+        );
     }
   };
 
