@@ -565,14 +565,6 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
       };
     }
 
-    if (pref === "ambulance_108" && profileForm.preferredAmbulanceNumber) {
-      return {
-        name: "Preferred Ambulance",
-        phone: profileForm.preferredAmbulanceNumber,
-        type: "ambulance",
-      };
-    }
-
     if (pref === "emergency_112") {
       return {
         name: "National Emergency Service",
@@ -603,20 +595,11 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
       };
     }
 
-    // 2. Preferred Ambulance Number from Profile
-    if (profileForm.preferredAmbulanceNumber) {
-      return {
-        name: "Preferred Ambulance",
-        phone: profileForm.preferredAmbulanceNumber,
-        type: "ambulance",
-      };
-    }
-
-    // 3. National Ambulance Hotline (108)
+    // 2. National Emergency (112)
     return {
-      name: "National Ambulance Service (108)",
-      phone: "108",
-      type: "ambulance",
+      name: "National Emergency Service",
+      phone: "112",
+      type: "national_emergency",
     };
   };
 
@@ -685,7 +668,6 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
 
   const fallbackEmergencyNumbers = [
     { label: "National Emergency (112)", phone: "112", type: "national_emergency" },
-    { label: "Ambulance Hotline (108)", phone: "108", type: "ambulance" },
   ];
 
   // Web Share API trigger
@@ -1406,79 +1388,58 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
                   )}
                 </div>
 
-                {/* 4. Ambulance Support */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-white/50 flex items-center gap-1.5">
-                    <Phone className="h-4 w-4" /> Ambulance Support
-                  </h3>
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                    {/* Always render Fallback Hotline 108 */}
-                    <GlassCard className="border border-red-500/20 bg-gradient-to-r from-red-500/5 to-transparent flex flex-col justify-between">
-                      <div>
-                        <div className="flex justify-between items-center">
-                          <h4 className="text-sm font-bold text-white">National Ambulance Service</h4>
-                          <span className="text-[10px] font-bold bg-red-500/20 text-red-300 px-2 py-0.5 rounded">Hotline</span>
-                        </div>
-                        <p className="text-xs text-white/50 mt-1">
-                          Official immediate medical response emergency team
-                        </p>
-                        <p className="text-[11px] text-red-300 mt-2">Active Emergency Line: 108</p>
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-white/5">
-                        <button
-                          onClick={() => call("National Ambulance", "ambulance", "108")}
-                          className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-600 py-2 text-xs font-bold text-white transition hover:bg-red-500"
-                        >
-                          <Phone className="h-3.5 w-3.5" /> Call Hotline (108)
-                        </button>
-                      </div>
-                    </GlassCard>
-
-                    {/* API-loaded Ambulance Stations */}
-                    {nearbyServices
-                      .filter((s) => s.type === "ambulance_station")
-                      .map((service, index) => (
-                        <GlassCard key={index} className="border border-white/5 flex flex-col justify-between">
-                          <div>
-                            <h4 className="text-sm font-semibold text-white leading-tight">
-                              {service.name}
-                            </h4>
-                            <p className="text-xs text-white/50 mt-1 leading-snug truncate">
-                              {service.address}
-                            </p>
-                            <p className="text-[11px] text-red-300 mt-1.5">
-                              {service.distanceKm} km away
-                            </p>
-                          </div>
-                          <div className="mt-4 pt-3 border-t border-white/5 flex gap-2">
-                            {service.phone ? (
-                              <button
-                                onClick={() => call(service.name, "ambulance", service.phone)}
-                                className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-red-600/90 py-2 text-xs font-bold text-white transition hover:bg-red-500"
+                {/* 4. Ambulance Stations (API-loaded only) */}
+                {nearbyServices.filter((s) => s.type === "ambulance_station").length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-white/50 flex items-center gap-1.5">
+                      <Phone className="h-4 w-4" /> Ambulance Stations
+                    </h3>
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                      {nearbyServices
+                        .filter((s) => s.type === "ambulance_station")
+                        .map((service, index) => (
+                          <GlassCard key={index} className="border border-white/5 flex flex-col justify-between">
+                            <div>
+                              <h4 className="text-sm font-semibold text-white leading-tight">
+                                {service.name}
+                              </h4>
+                              <p className="text-xs text-white/50 mt-1 leading-snug truncate">
+                                {service.address}
+                              </p>
+                              <p className="text-[11px] text-red-300 mt-1.5">
+                                {service.distanceKm} km away
+                              </p>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-white/5 flex gap-2">
+                              {service.phone ? (
+                                <button
+                                  onClick={() => call(service.name, "ambulance", service.phone)}
+                                  className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-red-600/90 py-2 text-xs font-bold text-white transition hover:bg-red-500"
+                                >
+                                  Call Now
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => call("National Emergency", "national_emergency", "112")}
+                                  className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-white/5 border border-white/10 py-2 text-[10px] font-bold text-white/70 transition hover:bg-white/10"
+                                >
+                                  Call 112
+                                </button>
+                              )}
+                              <a
+                                href={service.mapLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center justify-center rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/15"
                               >
-                                Call Now
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => call("National Ambulance", "ambulance", "108")}
-                                className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-white/5 border border-white/10 py-2 text-[10px] font-bold text-white/70 transition hover:bg-white/10"
-                              >
-                                Call 108
-                              </button>
-                            )}
-                            <a
-                              href={service.mapLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center justify-center rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/15"
-                            >
-                              Maps
-                            </a>
-                          </div>
-                        </GlassCard>
-                      ))}
+                                Maps
+                              </a>
+                            </div>
+                          </GlassCard>
+                        ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* 5. My Emergency Contact */}
                 <div className="space-y-3">
@@ -1994,7 +1955,7 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
                   className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none transition focus:bg-white/10 focus:ring-2 focus:ring-white/30"
                 >
                   <option className="bg-neutral-900" value="emergency_contact">My Emergency Contact</option>
-                  <option className="bg-neutral-900" value="ambulance_108">Ambulance Hotline (108)</option>
+
                   <option className="bg-neutral-900" value="emergency_112">Emergency Helpline (112)</option>
                   <option className="bg-neutral-900" value="nearest_hospital">Nearest Hospital with Phone</option>
                 </select>
