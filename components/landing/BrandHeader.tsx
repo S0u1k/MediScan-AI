@@ -68,7 +68,7 @@ export function BrandHeader({
             {identityLabel}
           </span>
 
-          {isAuthenticated ? (
+          {isAuthenticated && (
             <button
               type="button"
               aria-label="Log out"
@@ -77,16 +77,6 @@ export function BrandHeader({
             >
               <LogOut className="h-4 w-4" strokeWidth={1.5} />
               <span className="hidden sm:inline">Log out</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              aria-label="Open navigation menu"
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="liquid-glass glass-glow flex items-center gap-2 rounded-full px-4 py-2 text-sm text-white/80 outline-none transition-all duration-300 ease-out hover:scale-105 active:scale-95 hover:bg-white/15"
-            >
-              {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" strokeWidth={1.5} />}
-              <span className="hidden sm:inline">Explore Menu</span>
             </button>
           )}
 
