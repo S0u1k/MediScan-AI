@@ -11,4 +11,5 @@ export type DashboardTab =
   | "your-report"
   | "follow-up"
   | "my-profile"
-  | "contact";
+  | "contact"
+  | "privacy";

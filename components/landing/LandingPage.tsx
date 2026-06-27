@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useProtectedAction } from "@/hooks/useProtectedAction";
@@ -9,8 +9,10 @@ import { BottomQuote } from "./BottomQuote";
 import { BrandHeader } from "./BrandHeader";
 import { HeroContent } from "./HeroContent";
 import { HeroPanel } from "./HeroPanel";
+import { isAppMode } from "@/lib/appMode";
 
 export function LandingPage() {
+  const [isApp, setIsApp] = useState(false);
   const router = useRouter();
   const {
     authReady,
@@ -31,8 +33,9 @@ export function LandingPage() {
   // immediately (handles the case where someone navigates back to / while
   // still authenticated).
   useEffect(() => {
+    setIsApp(isAppMode());
     if (authReady && isAuthenticated) {
-      router.replace("/dashboard");
+      router.replace(isAppMode() ? "/dashboard?app=true" : "/dashboard");
     }
   }, [authReady, isAuthenticated, router]);
 
@@ -54,14 +57,16 @@ export function LandingPage() {
       {/* z-10 UI content */}
       <main className="relative z-10 flex min-h-screen w-full items-center justify-center p-4 sm:p-8">
         <HeroPanel>
-          <BrandHeader
-            identityLabel={identityLabel}
-            isAuthenticated={isAuthenticated}
-            onSignOut={signOut}
-            onMenuActivate={() =>
-              requestProtectedAction(undefined, document.activeElement as HTMLElement)
-            }
-          />
+          {!isApp && (
+            <BrandHeader
+              identityLabel={identityLabel}
+              isAuthenticated={isAuthenticated}
+              onSignOut={signOut}
+              onMenuActivate={() =>
+                requestProtectedAction(undefined, document.activeElement as HTMLElement)
+              }
+            />
+          )}
 
           <HeroContent
             onPrimaryAction={(el) => requestProtectedAction(undefined, el)}
@@ -70,7 +75,7 @@ export function LandingPage() {
             }
           />
 
-          <BottomQuote />
+          {!isApp && <BottomQuote />}
         </HeroPanel>
       </main>
 

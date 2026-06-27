@@ -5,6 +5,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -74,37 +75,58 @@ function getCurrentUser(): {
 
 /**
  * Creates or updates the parent users/{uid} document with readable identity
- * fields.  Works for Email, Google **and** Phone-number users.
- * - Email/Google users  → email is populated, phoneNumber may be empty.
- * - Phone users         → phoneNumber is populated, email is empty.
- * The `{ merge: true }` option means existing fields (e.g. createdAt) are
- * never overwritten on subsequent logins.
+ * fields and clear metadata for Firebase Console inspection.
+ * - Preserves original createdAt timestamp.
+ * - Provides human-readable ISO timestamps (lastLoginISO, createdAtISO) for easy sorting.
+ * - Clarifies photoURL and provider fields.
  */
 export async function ensureUserDocument(): Promise<void> {
   const user = getCurrentUser();
   if (!user) return;
+
   try {
-    await setDoc(
-      doc(db, "users", user.uid),
-      {
+    const userDocRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userDocRef);
+    const nowISO = new Date().toISOString();
+
+    if (!userSnap.exists()) {
+      // First time sign-up: set initial document with createdAt
+      await setDoc(userDocRef, {
         uid: user.uid,
-        email: user.email,           // empty string for phone-only users
-        phoneNumber: user.phoneNumber, // empty string for email/Google users
+        email: user.email,
+        phoneNumber: user.phoneNumber,
         displayName: user.displayName,
         photoURL: user.photoURL,
-        provider: user.provider,
+        photoURLDescription: user.photoURL
+          ? "Google OAuth or provider avatar profile picture URL"
+          : "No profile picture provided",
+        authProvider: user.provider,
         role: "patient",
-        lastLoginAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        // createdAt is only set on first write because of merge:true
+        accountStatus: "active",
         createdAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-    console.log(
-      "[Firestore] User document ensured:",
-      user.email || user.phoneNumber
-    );
+        createdAtISO: nowISO,
+        lastLoginAt: serverTimestamp(),
+        lastLoginISO: nowISO,
+        updatedAt: serverTimestamp(),
+      });
+      console.log("[Firestore] Created new user document:", user.email || user.phoneNumber);
+    } else {
+      // Returning user login: update last login timestamp without touching createdAt
+      await updateDoc(userDocRef, {
+        email: user.email || userSnap.data()?.email || "",
+        phoneNumber: user.phoneNumber || userSnap.data()?.phoneNumber || "",
+        displayName: user.displayName || userSnap.data()?.displayName || "User",
+        photoURL: user.photoURL || userSnap.data()?.photoURL || "",
+        photoURLDescription: (user.photoURL || userSnap.data()?.photoURL)
+          ? "Google OAuth or provider avatar profile picture URL"
+          : "No profile picture provided",
+        authProvider: user.provider || userSnap.data()?.authProvider || "unknown",
+        lastLoginAt: serverTimestamp(),
+        lastLoginISO: nowISO,
+        updatedAt: serverTimestamp(),
+      });
+      console.log("[Firestore] Updated existing user login timestamp:", user.email || user.phoneNumber);
+    }
   } catch (err) {
     console.error("[Firestore] ensureUserDocument failed:", err);
   }
@@ -125,16 +147,25 @@ export async function saveActivityLog(
   const user = getCurrentUser();
   if (!user) return;
 
+  const nowISO = new Date().toISOString();
   const log = {
-    uid: user.uid,
-    userEmail: user.email,           // empty string for phone-only users
-    userPhone: user.phoneNumber,     // empty string for email/Google users
+    // ── User Identification (Clear in Firestore Console) ──
     userName: user.displayName,
-    actionType,
-    moduleName,
-    description,
+    userEmail: user.email,
+    userPhone: user.phoneNumber,
+    userUID: user.uid,
+    uid: user.uid,
+
+    // ── AI Tool & Action Information ──
+    aiToolName: moduleName,
+    actionPerformed: actionType,
+    actionDescription: description,
     status,
+
+    // ── Additional Details & Timestamps ──
     metadata,
+    timestampISO: nowISO,
+    createdAtISO: nowISO,
     createdAt: serverTimestamp(),
   };
 
@@ -157,13 +188,25 @@ export async function saveUserData(
   const user = getCurrentUser();
   if (!user) return { success: false };
 
+  const nowISO = new Date().toISOString();
   const record: Record<string, unknown> = {
-    ...data,
-    uid: user.uid,
-    userEmail: user.email,           // empty string for phone-only users
-    userPhone: user.phoneNumber,     // empty string for email/Google users
+    // ── User Identification ──
     userName: user.displayName,
-    moduleName,
+    userEmail: user.email,
+    userPhone: user.phoneNumber,
+    userUID: user.uid,
+    uid: user.uid,
+
+    // ── AI Tool & Record Info ──
+    aiToolName: moduleName,
+    collectionType: collectionName,
+
+    // ── Record Data ──
+    ...data,
+
+    // ── Timestamps ──
+    timestampISO: nowISO,
+    createdAtISO: nowISO,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };

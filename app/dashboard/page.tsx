@@ -7,19 +7,10 @@ import { useProtectedAction } from "@/hooks/useProtectedAction";
 import { MediTrackDashboard } from "@/components/meditrack/MediTrackDashboard";
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const { session, authReady, isAuthenticated, signOut } = useProtectedAction();
+  const { session, authReady, signOut } = useProtectedAction();
 
-  // Guard: once Firebase has reported state, bounce guests back to the landing page.
-  useEffect(() => {
-    if (authReady && !isAuthenticated) {
-      router.replace("/");
-    }
-  }, [authReady, isAuthenticated, router]);
-
-  // While auth is resolving, or while redirecting a guest, show a quiet loader.
-  // (Earth/space background is rendered globally in app/layout.tsx.)
-  if (!authReady || !isAuthenticated) {
+  // While auth is resolving, show quiet loader
+  if (!authReady) {
     return (
       <main className="relative z-10 flex min-h-screen w-full items-center justify-center p-6">
         <div className="flex items-center gap-3 text-white/60">
@@ -31,7 +22,7 @@ export default function DashboardPage() {
   }
 
   const email =
-    session.kind === "authenticated" && session.identifier ? session.identifier : "";
+    session.kind === "authenticated" && session.identifier ? session.identifier : "Guest User";
 
   return <MediTrackDashboard email={email} onLogout={signOut} />;
 }

@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Loader2, Phone, Shield, X } from "lucide-react";
+import { Loader2, Phone, Shield, User, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { CONFIG } from "@/lib/config";
 
@@ -41,6 +42,7 @@ export function AuthModal({
   onPhoneSignIn,
   onVerifyOTP,
 }: AuthModalProps) {
+  const router = useRouter();
   const reduceMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const recaptchaId = useId().replace(/:/g, "recaptcha");
@@ -429,6 +431,21 @@ export function AuthModal({
                     )}
                     {CONFIG.modal.googleLabel}
                   </button>
+
+                  {/* ── Continue as Guest User ────────────────────────────────── */}
+                  <div className="mt-4 pt-3 border-t border-white/10 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        router.push("/dashboard");
+                      }}
+                      className="liquid-glass flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-medium text-white/80 transition-all duration-300 hover:bg-white/15 hover:text-white"
+                    >
+                      <User className="h-4 w-4" />
+                      Explore as Guest User
+                    </button>
+                  </div>
                 </motion.div>
               ) : (
                 /* ── Phone panel ───────────────────────────────────────────── */
