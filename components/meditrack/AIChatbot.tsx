@@ -311,7 +311,7 @@ export function AIChatbot({ user }: AIChatbotProps) {
   ];
 
   return (
-    <div className="flex h-[calc(100vh-190px)] min-h-[640px] flex-col gap-4">
+    <div className="flex h-[calc(100dvh-160px)] sm:h-[calc(100vh-190px)] min-h-[460px] sm:min-h-[600px] flex-col gap-3 sm:gap-4">
       <GlassCard className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10">

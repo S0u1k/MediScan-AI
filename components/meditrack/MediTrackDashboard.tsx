@@ -254,7 +254,7 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
       {/* Mobile overlay */}
       {!isApp && sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -262,7 +262,7 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
       {/* Sidebar */}
       {!isApp && (
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col p-4 transition-transform duration-300 lg:static lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col p-3 sm:p-4 transition-transform duration-300 lg:static lg:w-64 lg:max-w-none lg:translate-x-0 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
@@ -401,8 +401,8 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
                 </p>
               </div>
 
-              {/* ── 3-Dot Quick Action Menu ───────────────────────────────────── */}
-              <div className="relative">
+              {/* ── 3-Dot Quick Action Menu Trigger Button ────────────────────── */}
+              <div>
                 <button
                   type="button"
                   onClick={() => setThreeDotOpen(!threeDotOpen)}
@@ -411,135 +411,6 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
                 >
                   {threeDotOpen ? <X className="h-5 w-5 text-white" /> : <MoreVertical className="h-5 w-5" />}
                 </button>
-
-                <AnimatePresence>
-                  {threeDotOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                      {/* Deep dark backdrop-blur-xl overlay to fully blur out background greeting, stats, and text */}
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-black/80 backdrop-blur-xl transition-all duration-300"
-                        onClick={() => setThreeDotOpen(false)}
-                      />
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 15 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 15 }}
-                        transition={{ duration: 0.22, ease: "easeOut" }}
-                        className="relative z-[110] w-full max-w-md liquid-glass-strong rounded-[2.5rem] p-6 sm:p-7 shadow-[0_30px_90px_rgba(0,0,0,0.95)] border border-white/30 backdrop-blur-3xl space-y-2.5 text-left"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setThreeDotOpen(false)}
-                          className="absolute right-5 top-5 rounded-full p-2 text-white/50 hover:bg-white/15 hover:text-white transition"
-                          aria-label="Close action menu"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-
-                        <div className="px-1 pb-3 border-b border-white/15 mb-2">
-                          <div className="flex items-center gap-2.5">
-                            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                              <Sparkles className="h-5 w-5" />
-                            </span>
-                            <div>
-                              <p className="text-base font-bold text-white tracking-wide">Smart Workspace Actions</p>
-                              <p className="text-xs text-white/50">Select a quick action or feature tool below</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const randomTip = HEALTH_TIPS[Math.floor(Math.random() * HEALTH_TIPS.length)];
-                            setHealthTip(randomTip);
-                            setShowTipModal(true);
-                            setThreeDotOpen(false);
-                          }}
-                          className="flex w-full items-center gap-3.5 rounded-2xl p-3 text-sm font-semibold text-white bg-white/5 hover:bg-white/20 hover:scale-[1.02] border border-white/10 transition-all group"
-                        >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 group-hover:scale-110 transition-transform">
-                            <Sparkles className="h-5 w-5" />
-                          </span>
-                          <div className="flex-1 text-left">
-                            <p className="text-sm font-semibold text-white">Daily Health Insight</p>
-                            <p className="text-[11px] font-normal text-white/50">Get instant personalized wellness advice</p>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => { setActiveTab("privacy"); setThreeDotOpen(false); }}
-                          className="flex w-full items-center gap-3.5 rounded-2xl p-3 text-sm font-semibold text-white bg-white/5 hover:bg-white/20 hover:scale-[1.02] border border-white/10 transition-all group"
-                        >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 group-hover:scale-110 transition-transform">
-                            <Shield className="h-5 w-5" />
-                          </span>
-                          <div className="flex-1 text-left">
-                            <p className="text-sm font-semibold text-white">Privacy &amp; Security Center</p>
-                            <p className="text-[11px] font-normal text-white/50">Manage data, account deletion &amp; logs</p>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => { setActiveTab("your-report"); setThreeDotOpen(false); }}
-                          className="flex w-full items-center gap-3.5 rounded-2xl p-3 text-sm font-semibold text-white bg-white/5 hover:bg-white/20 hover:scale-[1.02] border border-white/10 transition-all group"
-                        >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 group-hover:scale-110 transition-transform">
-                            <FileText className="h-5 w-5" />
-                          </span>
-                          <div className="flex-1 text-left">
-                            <p className="text-sm font-semibold text-white">Export Health PDF Summary</p>
-                            <p className="text-[11px] font-normal text-white/50">Download comprehensive clinical records</p>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => { setAutoTriggerSos(true); setActiveTab("emergency"); setThreeDotOpen(false); }}
-                          className="flex w-full items-center gap-3.5 rounded-2xl p-3 text-sm font-semibold text-white bg-white/5 hover:bg-white/20 hover:scale-[1.02] border border-white/10 transition-all group"
-                        >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 group-hover:scale-110 transition-transform">
-                            <AlertTriangle className="h-5 w-5" />
-                          </span>
-                          <div className="flex-1 text-left">
-                            <p className="text-sm font-semibold text-white">Emergency SOS Panic</p>
-                            <p className="text-[11px] font-normal text-white/50">Trigger live GPS tracking &amp; alerts</p>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => { window.location.reload(); }}
-                          className="flex w-full items-center gap-3.5 rounded-2xl p-3 text-sm font-semibold text-white bg-white/5 hover:bg-white/20 hover:scale-[1.02] border border-white/10 transition-all group"
-                        >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 group-hover:scale-110 transition-transform">
-                            <RefreshCw className="h-5 w-5" />
-                          </span>
-                          <div className="flex-1 text-left">
-                            <p className="text-sm font-semibold text-white">Refresh Workspace</p>
-                            <p className="text-[11px] font-normal text-white/50">Reload dashboard data &amp; Firestore sync</p>
-                          </div>
-                        </button>
-
-                        <div className="border-t border-white/15 pt-3 mt-2">
-                          <button
-                            type="button"
-                            onClick={() => { onLogout(); setThreeDotOpen(false); }}
-                            className="flex w-full items-center justify-center gap-3 rounded-2xl p-3.5 text-sm font-semibold text-red-300 bg-red-500/15 hover:bg-red-500/30 border border-red-500/30 transition-all active:scale-95 shadow-lg"
-                          >
-                            <LogOut className="h-5 w-5" />
-                            {(!email || email === "Guest User" || email.toLowerCase().includes("guest")) ? "Sign In / Create Account" : "Sign Out Account"}
-                          </button>
-                        </div>
-                      </motion.div>
-                    </div>
-                  )}
-                </AnimatePresence>
               </div>
             </div>
           </div>
@@ -611,6 +482,136 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
                 >
                   Got it, thanks!
                 </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* ── 3-Dot Quick Action Modal (Root Level for unconstrained backdrop blur) ── */}
+        <AnimatePresence>
+          {threeDotOpen && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+              {/* Deep dark backdrop-blur-xl overlay covering entire viewport */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/80 backdrop-blur-xl transition-all duration-300"
+                onClick={() => setThreeDotOpen(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 15 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                className="relative z-[210] w-full max-w-md liquid-glass-strong rounded-[2.5rem] p-6 sm:p-7 shadow-[0_30px_90px_rgba(0,0,0,0.95)] border border-white/30 backdrop-blur-3xl space-y-2.5 text-left"
+              >
+                <button
+                  type="button"
+                  onClick={() => setThreeDotOpen(false)}
+                  className="absolute right-5 top-5 rounded-full p-2 text-white/50 hover:bg-white/15 hover:text-white transition"
+                  aria-label="Close action menu"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+
+                <div className="px-1 pb-3 border-b border-white/15 mb-2">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      <Sparkles className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-base font-bold text-white tracking-wide">Smart Workspace Actions</p>
+                      <p className="text-xs text-white/50">Select a quick action or feature tool below</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const randomTip = HEALTH_TIPS[Math.floor(Math.random() * HEALTH_TIPS.length)];
+                    setHealthTip(randomTip);
+                    setShowTipModal(true);
+                    setThreeDotOpen(false);
+                  }}
+                  className="flex w-full items-center gap-3.5 rounded-2xl p-3 text-sm font-semibold text-white bg-white/5 hover:bg-white/20 hover:scale-[1.02] border border-white/10 transition-all group"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 group-hover:scale-110 transition-transform">
+                    <Sparkles className="h-5 w-5" />
+                  </span>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-semibold text-white">Daily Health Insight</p>
+                    <p className="text-[11px] font-normal text-white/50">Get instant personalized wellness advice</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab("privacy"); setThreeDotOpen(false); }}
+                  className="flex w-full items-center gap-3.5 rounded-2xl p-3 text-sm font-semibold text-white bg-white/5 hover:bg-white/20 hover:scale-[1.02] border border-white/10 transition-all group"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 group-hover:scale-110 transition-transform">
+                    <Shield className="h-5 w-5" />
+                  </span>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-semibold text-white">Privacy &amp; Security Center</p>
+                    <p className="text-[11px] font-normal text-white/50">Manage data, account deletion &amp; logs</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab("your-report"); setThreeDotOpen(false); }}
+                  className="flex w-full items-center gap-3.5 rounded-2xl p-3 text-sm font-semibold text-white bg-white/5 hover:bg-white/20 hover:scale-[1.02] border border-white/10 transition-all group"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 group-hover:scale-110 transition-transform">
+                    <FileText className="h-5 w-5" />
+                  </span>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-semibold text-white">Export Health PDF Summary</p>
+                    <p className="text-[11px] font-normal text-white/50">Download comprehensive clinical records</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setAutoTriggerSos(true); setActiveTab("emergency"); setThreeDotOpen(false); }}
+                  className="flex w-full items-center gap-3.5 rounded-2xl p-3 text-sm font-semibold text-white bg-white/5 hover:bg-white/20 hover:scale-[1.02] border border-white/10 transition-all group"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 group-hover:scale-110 transition-transform">
+                    <AlertTriangle className="h-5 w-5" />
+                  </span>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-semibold text-white">Emergency SOS Panic</p>
+                    <p className="text-[11px] font-normal text-white/50">Trigger live GPS tracking &amp; alerts</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { window.location.reload(); }}
+                  className="flex w-full items-center gap-3.5 rounded-2xl p-3 text-sm font-semibold text-white bg-white/5 hover:bg-white/20 hover:scale-[1.02] border border-white/10 transition-all group"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 group-hover:scale-110 transition-transform">
+                    <RefreshCw className="h-5 w-5" />
+                  </span>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-semibold text-white">Refresh Workspace</p>
+                    <p className="text-[11px] font-normal text-white/50">Reload dashboard data &amp; Firestore sync</p>
+                  </div>
+                </button>
+
+                <div className="border-t border-white/15 pt-3 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => { onLogout(); setThreeDotOpen(false); }}
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl p-3.5 text-sm font-semibold text-red-300 bg-red-500/15 hover:bg-red-500/30 border border-red-500/30 transition-all active:scale-95 shadow-lg"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    {(!email || email === "Guest User" || email.toLowerCase().includes("guest")) ? "Sign In / Create Account" : "Sign Out Account"}
+                  </button>
+                </div>
               </motion.div>
             </div>
           )}
