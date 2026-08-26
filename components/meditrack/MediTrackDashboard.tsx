@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { storageService, type UserProfile } from "@/lib/storage";
+import { useProtectedAction } from "@/hooks/useProtectedAction";
 import { FeatureSkeleton } from "./FeatureSkeleton";
 import type { DashboardTab } from "./types";
 import { isAppMode } from "@/lib/appMode";
@@ -127,6 +128,7 @@ const HEALTH_TIPS = [
 ];
 
 export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboardProps) {
+  const { requestProtectedAction } = useProtectedAction();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
@@ -442,7 +444,7 @@ export function MediTrackDashboard({ email, name, onLogout }: MediTrackDashboard
               </div>
               <button
                 type="button"
-                onClick={onLogout}
+                onClick={() => requestProtectedAction()}
                 className="shrink-0 rounded-xl bg-teal-400 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-teal-300 active:scale-95 shadow-lg"
               >
                 Sign In / Create Account

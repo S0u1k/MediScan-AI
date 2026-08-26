@@ -45,9 +45,23 @@ export const GRAYSCALE = {
   gray10: "hsl(0 0% 10%)",
 } as const;
 
+export const AI_MODELS = {
+  chat: {
+    id: "anthropic/claude-opus-4.8-fast",
+    name: "Claude Opus 4.8 Fast",
+    provider: "Anthropic",
+  },
+  vision: {
+    id: "google/gemini-3.1-pro-preview",
+    name: "Gemini 3.1 Pro Preview",
+    provider: "Google",
+  },
+} as const;
+
 export const TEXT_OPACITY_TIERS = [
   "text-white",
   "text-white/80",
   "text-white/60",
   "text-white/50",
 ] as const;
+

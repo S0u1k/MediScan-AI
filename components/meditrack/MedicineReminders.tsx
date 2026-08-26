@@ -70,18 +70,16 @@ export function MedicineReminders() {
 
   useEffect(() => {
     const saved = storageService.getMedicines();
-    if (saved.length > 0) {
-      setMedicines(saved);
-    } else {
-      const defaults: Medicine[] = [
-        { id: "1", name: "Vitamin D3", dosage: "1000 IU", time: "08:00", frequency: "Daily", taken: true, status: "taken", slot: "morning", foodTiming: "after", duration: "30 days" },
-        { id: "2", name: "Blood Pressure Med", dosage: "10mg", time: "14:00", frequency: "Daily", taken: false, status: "pending", slot: "afternoon", foodTiming: "before", duration: "Ongoing" },
-        { id: "3", name: "Omega-3 Fish Oil", dosage: "1000mg", time: "21:00", frequency: "Daily", taken: false, status: "pending", slot: "night", foodTiming: "after", duration: "60 days" },
-      ];
-      setMedicines(defaults);
-      storageService.saveMedicines(defaults);
-    }
+    setMedicines(saved);
   }, []);
+
+  const loadDemoData = () => {
+    const demoItems: Medicine[] = [
+      { id: "demo-1", name: "Vitamin D3 (DEMO)", dosage: "1000 IU", time: "08:00", frequency: "Daily", taken: true, status: "taken", slot: "morning", foodTiming: "after", duration: "30 days" },
+      { id: "demo-2", name: "Blood Pressure Med (DEMO)", dosage: "10mg", time: "14:00", frequency: "Daily", taken: false, status: "pending", slot: "afternoon", foodTiming: "before", duration: "Ongoing" },
+    ];
+    persist(demoItems);
+  };
 
   const persist = (next: Medicine[]) => {
     setMedicines(next);
@@ -175,9 +173,20 @@ export function MedicineReminders() {
       <GlassCard>
         <div className="flex items-center justify-between">
           <h3 className="text-base font-medium text-white">Medicine Schedule</h3>
-          <GlassButton onClick={openAdd}>
-            <Plus className="h-4 w-4" /> Add Medicine
-          </GlassButton>
+          <div className="flex gap-2">
+            {medicines.length === 0 && (
+              <button
+                type="button"
+                onClick={loadDemoData}
+                className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-amber-300 border border-amber-500/20 hover:bg-white/15"
+              >
+                Load Demo Data (Sample Only)
+              </button>
+            )}
+            <GlassButton onClick={openAdd}>
+              <Plus className="h-4 w-4" /> Add Medicine
+            </GlassButton>
+          </div>
         </div>
 
         {showForm && (

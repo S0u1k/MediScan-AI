@@ -216,9 +216,19 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
   }, [autoTriggerSos]);
 
   const loadEmergencyProfile = async () => {
-    if (!uid || uid === "anonymous") return;
+    if (!auth.currentUser || !auth.currentUser.uid) {
+      const localProfile = storageService.getUserProfile();
+      if (localProfile?.emergencyContact) {
+        setProfileForm((prev) => ({
+          ...prev,
+          emergencyContactName: localProfile.emergencyContact?.name || "",
+          emergencyContactPhone: localProfile.emergencyContact?.phone || "",
+        }));
+      }
+      return;
+    }
     try {
-      const docRef = doc(db, "users", uid, "emergencyProfile", "main");
+      const docRef = doc(db, "users", auth.currentUser.uid, "emergencyProfile", "main");
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const data = snap.data();
@@ -239,13 +249,22 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
   };
 
   const saveEmergencyProfile = async () => {
-    if (!uid || uid === "anonymous") {
-      alert("You must be logged in to save your emergency profile to Firestore.");
+    if (!auth.currentUser || !auth.currentUser.uid) {
+      const currentLocal = storageService.getUserProfile() || { id: "guest", name: "Guest", email: "", createdAt: new Date().toISOString(), onboardingComplete: true };
+      storageService.saveUserProfile({
+        ...currentLocal,
+        emergencyContact: {
+          name: profileForm.emergencyContactName,
+          phone: profileForm.emergencyContactPhone,
+          relationship: "Emergency Contact",
+        },
+      });
+      alert("Emergency profile saved to local storage (Guest Mode).");
       return;
     }
     setSavingProfile(true);
     try {
-      const docRef = doc(db, "users", uid, "emergencyProfile", "main");
+      const docRef = doc(db, "users", auth.currentUser.uid, "emergencyProfile", "main");
       await setDoc(docRef, {
         ...profileForm,
         updatedAt: serverTimestamp(),
@@ -795,8 +814,9 @@ export function EmergencySOS({ user, autoTriggerSos, onSosTriggered }: Emergency
   };
 
   const updateEventStatus = async (eventId: string, status: string, additionalFields: any = {}) => {
+    if (!auth.currentUser || !auth.currentUser.uid) return;
     try {
-      const docRef = doc(db, "users", uid, "emergencyEvents", eventId);
+      const docRef = doc(db, "users", auth.currentUser.uid, "emergencyEvents", eventId);
       await setDoc(
         docRef,
         {

@@ -242,7 +242,10 @@ export function PrivacyDataControl() {
   // ── Load data ──────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
-    if (!uid) return;
+    if (!uid) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [summaryData, reqStatus] = await Promise.all([

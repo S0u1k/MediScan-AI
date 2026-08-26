@@ -47,11 +47,14 @@ export function DashboardOverview({ user, onNavigate, onUpdateProfile, onStartEm
   const greeting =
     new Date().getHours() < 12 ? "Morning" : new Date().getHours() < 18 ? "Afternoon" : "Evening";
 
+  const healthStats = storageService.getHealthStats();
+  const latestStat = healthStats[0];
+
   const stats = [
-    { label: "Heart Rate", value: "72", unit: "bpm", Icon: Heart },
-    { label: "Water Intake", value: (water.amount / 1000).toFixed(1), unit: "L", Icon: Droplets },
-    { label: "Active Minutes", value: "45", unit: "min", Icon: Activity },
-    { label: "Medications", value: medicineStats.taken.toString(), unit: "taken", Icon: Pill },
+    { label: "Heart Rate", value: latestStat?.heartRate ? String(latestStat.heartRate) : "--", unit: "bpm", Icon: Heart },
+    { label: "Water Intake", value: water.amount > 0 ? (water.amount / 1000).toFixed(1) : "0.0", unit: "L", Icon: Droplets },
+    { label: "Active Minutes", value: latestStat?.steps ? String(Math.round(latestStat.steps / 100)) : "--", unit: "min", Icon: Activity },
+    { label: "Medications", value: medicineStats.total > 0 ? `${medicineStats.taken}/${medicineStats.total}` : "0", unit: "taken", Icon: Pill },
   ];
 
   const quickActions: { label: string; tab: DashboardTab; Icon: typeof Pill }[] = [

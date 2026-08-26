@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Calculator, Info, Minus, Scale, TrendingDown, TrendingUp } from "lucide-react";
+import { Calculator, Info, Minus, Scale, TrendingDown, TrendingUp, AlertTriangle } from "lucide-react";
 import { storageService, type BMIRecord } from "@/lib/storage";
 import { GlassButton, GlassCard, GlassInput, SectionTitle } from "./ui";
 
@@ -11,23 +11,24 @@ interface BMICategory {
   description: string;
 }
 
-const bmiCategories: BMICategory[] = [
-  { range: "< 18.5", label: "Underweight", description: "Consider consulting a nutritionist to develop a healthy weight gain plan." },
-  { range: "18.5 - 24.9", label: "Normal", description: "Great job! Maintain your healthy lifestyle with balanced diet and exercise." },
-  { range: "25 - 29.9", label: "Overweight", description: "Consider increasing physical activity and reviewing your dietary habits." },
-  { range: "≥ 30", label: "Obese", description: "Consult with a healthcare provider for personalized health guidance." },
+const adultBmiCategories: BMICategory[] = [
+  { range: "< 18.5", label: "Below Standard Range", description: "BMI is below the standard adult reference range." },
+  { range: "18.5 - 24.9", label: "Standard Adult Range", description: "BMI is within the standard adult reference range." },
+  { range: "25 - 29.9", label: "Above Standard Range", description: "BMI is above the standard adult reference range." },
+  { range: "≥ 30", label: "Significantly Above Range", description: "BMI is significantly above the standard adult reference range. Consult a healthcare provider for personalized medical evaluation." },
 ];
 
-function categoryFor(value: number): BMICategory {
-  if (value < 18.5) return bmiCategories[0];
-  if (value < 25) return bmiCategories[1];
-  if (value < 30) return bmiCategories[2];
-  return bmiCategories[3];
+function adultCategoryFor(value: number): BMICategory {
+  if (value < 18.5) return adultBmiCategories[0];
+  if (value < 25) return adultBmiCategories[1];
+  if (value < 30) return adultBmiCategories[2];
+  return adultBmiCategories[3];
 }
 
 export function BMICalculator() {
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
+  const [age, setAge] = useState("");
   const [bmi, setBmi] = useState<number | null>(null);
   const [records, setRecords] = useState<BMIRecord[]>([]);
   const [isMetric, setIsMetric] = useState(true);
@@ -40,6 +41,9 @@ export function BMICalculator() {
       if (user.weight) setWeight(user.weight.toString());
     }
   }, []);
+
+  const parsedAge = age ? parseInt(age, 10) : null;
+  const isMinor = parsedAge !== null && !isNaN(parsedAge) && parsedAge < 18;
 
   const calculate = () => {
     const h = parseFloat(height);
@@ -75,7 +79,7 @@ export function BMICalculator() {
   })();
 
   const position = (v: number) => ((Math.min(Math.max(v, 15), 40) - 15) / 25) * 100;
-  const category = bmi ? categoryFor(bmi) : null;
+  const category = bmi && !isMinor ? adultCategoryFor(bmi) : null;
 
   return (
     <div className="space-y-6">
@@ -98,9 +102,9 @@ export function BMICalculator() {
           ))}
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="space-y-2">
-            <label className="text-sm text-white/60">Height ({isMetric ? "cm" : "inches"})</label>
+            <label className="text-sm text-white/60">Height ({isMetric ? "cm" : "inches"}) *</label>
             <GlassInput
               type="number"
               placeholder={isMetric ? "e.g., 175" : "e.g., 69"}
@@ -110,12 +114,22 @@ export function BMICalculator() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm text-white/60">Weight ({isMetric ? "kg" : "lbs"})</label>
+            <label className="text-sm text-white/60">Weight ({isMetric ? "kg" : "lbs"}) *</label>
             <GlassInput
               type="number"
               placeholder={isMetric ? "e.g., 70" : "e.g., 154"}
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-white/60">Age (Optional)</label>
+            <GlassInput
+              type="number"
+              placeholder="e.g., 25"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
               className="w-full"
             />
           </div>
@@ -126,85 +140,92 @@ export function BMICalculator() {
         </GlassButton>
       </GlassCard>
 
-      {bmi && category && (
+      {bmi && (
         <GlassCard>
           <div className="mb-6 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2">
-              <Scale className="h-5 w-5 text-white" strokeWidth={1.5} />
-              <span className="text-sm font-medium text-white">{category.label}</span>
+            {isMinor ? (
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-500/20 px-4 py-2 text-amber-300">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm font-semibold">Pediatric Evaluation Required</span>
+              </div>
+            ) : (
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2">
+                <Scale className="h-5 w-5 text-white" strokeWidth={1.5} />
+                <span className="text-sm font-medium text-white">
+                  {category?.label || (parsedAge === null ? "General Adult Informational Calculation" : "Adult Assessment")}
+                </span>
+              </div>
+            )}
+
+            <p className="text-5xl font-bold text-white">{bmi}</p>
+            <p className="mt-1 text-sm text-white/50">
+              {parsedAge === null
+                ? "General Adult Informational Calculation (Age not specified)"
+                : isMinor
+                ? `BMI Score (Age ${parsedAge})`
+                : `Adult BMI (Age ${parsedAge})`}
+            </p>
+          </div>
+
+          {!isMinor && (
+            <>
+              <div className="relative mb-2 h-3 overflow-hidden rounded-full bg-gradient-to-r from-white/20 via-white/50 to-white/80">
+                <div
+                  className="absolute top-0 h-full w-3 -translate-x-1/2 rounded-full bg-white shadow transition-all duration-500"
+                  style={{ left: `${position(bmi)}%` }}
+                />
+              </div>
+              <div className="mb-6 flex justify-between text-xs text-white/40">
+                <span>15</span>
+                <span>18.5</span>
+                <span>25</span>
+                <span>30</span>
+                <span>40</span>
+              </div>
+            </>
+          )}
+
+          {isMinor ? (
+            <div className="flex items-start gap-3 rounded-xl bg-amber-500/10 p-4 border border-amber-500/20">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+              <p className="text-xs leading-relaxed text-amber-200/90">
+                <strong>Notice for Minors (Under 18):</strong> Standard adult BMI threshold categories do not apply to children and adolescents. Pediatric growth charts and percentiles (CDC/WHO) must be evaluated by a qualified pediatrician or medical professional.
+              </p>
             </div>
-            <p className="text-5xl font-medium text-white">{bmi}</p>
-            <p className="text-white/50">Your Body Mass Index</p>
-          </div>
-
-          <div className="relative mb-2 h-3 overflow-hidden rounded-full bg-gradient-to-r from-white/20 via-white/50 to-white/80">
-            <div
-              className="absolute top-0 h-full w-3 -translate-x-1/2 rounded-full bg-white shadow transition-all duration-500"
-              style={{ left: `${position(bmi)}%` }}
-            />
-          </div>
-          <div className="mb-6 flex justify-between text-xs text-white/40">
-            <span>15</span>
-            <span>18.5</span>
-            <span>25</span>
-            <span>30</span>
-            <span>40</span>
-          </div>
-
-          <div className="flex items-start gap-3 rounded-xl bg-white/5 p-4">
-            <Info className="mt-0.5 h-5 w-5 shrink-0 text-white/70" strokeWidth={1.5} />
-            <p className="text-sm text-white/60">{category.description}</p>
-          </div>
+          ) : (
+            category && (
+              <div className="flex items-start gap-3 rounded-xl bg-white/5 p-4">
+                <Info className="mt-0.5 h-5 w-5 shrink-0 text-white/70" strokeWidth={1.5} />
+                <p className="text-sm text-white/70">{category.description}</p>
+              </div>
+            )
+          )}
 
           {trend && (
             <div className="mt-4 flex items-center justify-center gap-2 text-white/60">
               <trend.Icon className="h-4 w-4" />
-              <span className="text-sm">BMI is {trend.text}</span>
+              <span className="text-sm">BMI trend is {trend.text}</span>
             </div>
           )}
         </GlassCard>
       )}
 
-      <GlassCard>
-        <h3 className="mb-4 text-base font-medium text-white">BMI Categories</h3>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {bmiCategories.map((c) => (
-            <div
-              key={c.label}
-              className={`rounded-xl p-4 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl ${
-                category?.label === c.label ? "bg-white/15" : "bg-white/5 hover:bg-white/10"
-              }`}
-            >
-              <div className="mb-2 h-3 w-3 rounded-full bg-white/60" />
-              <p className="text-sm font-medium text-white">{c.label}</p>
-              <p className="text-xs text-white/50">{c.range}</p>
-            </div>
-          ))}
-        </div>
-      </GlassCard>
-
-      {records.length > 0 && (
+      {!isMinor && (
         <GlassCard>
-          <h3 className="mb-4 text-base font-medium text-white">Recent Records</h3>
-          <div className="space-y-2">
-            {records.slice(0, 5).map((r, i) => {
-              const c = categoryFor(r.bmi);
-              return (
-                <div
-                  key={`${r.date}-${i}`}
-                  className="flex items-center justify-between rounded-lg bg-white/5 p-3 transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-2 w-2 rounded-full bg-white/60" />
-                    <div>
-                      <p className="text-sm font-medium text-white">{r.bmi}</p>
-                      <p className="text-xs text-white/50">{r.date}</p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-medium text-white/60">{c.label}</span>
-                </div>
-              );
-            })}
+          <h3 className="mb-4 text-base font-medium text-white">Adult Standard BMI Ranges</h3>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {adultBmiCategories.map((c) => (
+              <div
+                key={c.label}
+                className={`rounded-xl p-4 transition-all duration-300 ease-out ${
+                  category?.label === c.label ? "bg-white/15 ring-1 ring-white/30" : "bg-white/5"
+                }`}
+              >
+                <div className="mb-2 h-3 w-3 rounded-full bg-white/60" />
+                <p className="text-sm font-medium text-white">{c.label}</p>
+                <p className="text-xs text-white/50">{c.range}</p>
+              </div>
+            ))}
           </div>
         </GlassCard>
       )}

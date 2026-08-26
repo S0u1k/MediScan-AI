@@ -1,5 +1,8 @@
 // Server-only OpenRouter utility. NEVER import into client components.
-// Calls the OpenRouter chat completions API with the given key and model.
+// Calls the OpenRouter chat completions API with key and model fallback handling.
+
+import { AI_MODELS } from "@/lib/config";
+import { OpenRouterError, mapOpenRouterStatus } from "./gemini";
 
 const BASE_URL = process.env.OPENROUTER_API_BASE || "https://openrouter.ai/api/v1/chat/completions";
 
@@ -13,8 +16,8 @@ export type ContentPart =
   | { type: "image_url"; image_url: { url: string } };
 
 interface CallOptions {
-  apiKey: string;
-  model: string;
+  apiKey?: string;
+  model?: string;
   messages: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
@@ -22,42 +25,66 @@ interface CallOptions {
 
 /**
  * Calls OpenRouter's chat completions endpoint. Returns the assistant text.
- * Throws on any non-OK response so callers can fall back.
  */
 export async function callOpenRouter({
-  apiKey,
-  model,
+  apiKey: overrideKey,
+  model: overrideModel,
   messages,
   maxTokens = 700,
   temperature = 0.4,
 }: CallOptions): Promise<string> {
-  if (!apiKey) throw new Error("No API key provided");
+  const apiKey = overrideKey || process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_GEMINI_KEY;
+  const model = overrideModel || process.env.OPENROUTER_MODEL || AI_MODELS.chat.id;
 
-  const res = await fetch(BASE_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://mediscan-ai.local",
-      "X-Title": "MediScan AI",
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: maxTokens,
-      temperature,
-    }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`OpenRouter ${res.status}: ${detail.slice(0, 200)}`);
+  if (!apiKey) {
+    throw new OpenRouterError("MISSING_API_KEY", 500, "No OpenRouter API key found in environment.");
   }
 
-  const json = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  return (json.choices?.[0]?.message?.content ?? "").trim();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const res = await fetch(BASE_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://mediscan-ai.local",
+        "X-Title": "MediScan AI",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      const mapped = mapOpenRouterStatus(res.status, detail);
+      throw new OpenRouterError(mapped.reason, mapped.httpStatus, mapped.message);
+    }
+
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const content = (json.choices?.[0]?.message?.content ?? "").trim();
+    if (!content) {
+      throw new OpenRouterError("INVALID_PROVIDER_RESPONSE", 502, "Received empty response from AI provider.");
+    }
+    return content;
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    if (err instanceof OpenRouterError) throw err;
+    if ((err as Error).name === "AbortError") {
+      throw new OpenRouterError("UPSTREAM_TIMEOUT", 504, "AI provider request timed out.");
+    }
+    throw new OpenRouterError("INVALID_PROVIDER_RESPONSE", 500, (err as Error).message || "Failed to reach AI provider.");
+  }
 }
 
 /** Extracts the first JSON object from a possibly-noisy model response. */
@@ -81,28 +108,21 @@ export function imageDataUrl(base64: string, mimeType: string): string {
   return `data:${mimeType};base64,${base64}`;
 }
 
-/** Gets the key for a specific feature, with fallback chain. */
-export function getKeyForFeature(feature: "xray" | "prescription" | "lab" | "summarizer" | "assistant"): { key: string; model: string } | null {
+/** Gets key and model configuration for features. */
+export function getKeyForFeature(
+  feature: "xray" | "prescription" | "lab" | "summarizer" | "assistant"
+): { key: string; model: string } | null {
   const env = process.env;
-  switch (feature) {
-    case "xray":
-      if (env.OPENROUTER_GEMINI_3_PRO_KEY) return { key: env.OPENROUTER_GEMINI_3_PRO_KEY, model: env.MODEL_XRAY || "gemini-3-pro" };
-      break;
-    case "prescription":
-      if (env.OPENROUTER_GEMINI_3_PRO_KEY) return { key: env.OPENROUTER_GEMINI_3_PRO_KEY, model: env.MODEL_PRESCRIPTION || "gemini-3-pro" };
-      break;
-    case "lab":
-      if (env.OPENROUTER_GPT_5_4_KEY) return { key: env.OPENROUTER_GPT_5_4_KEY, model: env.MODEL_LAB_REPORT || "gpt-5.4" };
-      break;
-    case "summarizer":
-      if (env.OPENROUTER_GPT_5_4_KEY) return { key: env.OPENROUTER_GPT_5_4_KEY, model: env.MODEL_SUMMARIZER || "gpt-5.4" };
-      break;
-    case "assistant":
-      if (env.OPENROUTER_OPUS_4_8_FAST_KEY) return { key: env.OPENROUTER_OPUS_4_8_FAST_KEY, model: env.MODEL_AI_ASSISTANT || "opus-4.8-fast" };
-      break;
+
+  if (feature === "xray" || feature === "prescription") {
+    const key = env.OPENROUTER_GEMINI_KEY || env.OPENROUTER_API_KEY;
+    if (!key) return null;
+    const model = env.OPENROUTER_GEMINI_MODEL || AI_MODELS.vision.id;
+    return { key, model };
   }
-  // Fallback chain
-  if (env.OPENROUTER_DEEPSEEK_V4_KEY) return { key: env.OPENROUTER_DEEPSEEK_V4_KEY, model: env.MODEL_FALLBACK || "deepseek-v4" };
-  if (env.OPENROUTER_NOVA_MICRO_KEY) return { key: env.OPENROUTER_NOVA_MICRO_KEY, model: env.MODEL_LIGHT_FALLBACK || "amazon-nova-micro" };
-  return null;
+
+  const key = env.OPENROUTER_API_KEY || env.OPENROUTER_GEMINI_KEY;
+  if (!key) return null;
+  const model = env.OPENROUTER_MODEL || AI_MODELS.chat.id;
+  return { key, model };
 }

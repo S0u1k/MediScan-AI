@@ -289,11 +289,7 @@ class StorageService {
 
   // Emergency Contacts
   getEmergencyContacts(): EmergencyContact[] {
-    return (
-      this.get<EmergencyContact[]>(STORAGE_KEYS.EMERGENCY_CONTACTS) || [
-        { id: "1", name: "Emergency Services", phone: "911", relationship: "Emergency" },
-      ]
-    );
+    return this.get<EmergencyContact[]>(STORAGE_KEYS.EMERGENCY_CONTACTS) || [];
   }
 
   saveEmergencyContacts(contacts: EmergencyContact[]): void {

@@ -29,10 +29,11 @@ import {
   Bone,
   MessageSquare,
   AlertTriangle,
+  Lock,
 } from "lucide-react";
+import { storageService, type UserProfile as LocalProfile } from "@/lib/storage";
+import { useProtectedAction } from "@/hooks/useProtectedAction";
 import { GlassCard } from "./ui";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UserDoc {
   uid: string;
@@ -58,8 +59,6 @@ interface SectionData {
   collection: string;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function fmtTs(ts: { seconds: number } | null | undefined): string {
   if (!ts) return "—";
   return new Date(ts.seconds * 1000).toLocaleString("en-IN", {
@@ -76,7 +75,7 @@ function providerLabel(provider: string): string {
     case "google.com":     return "Google";
     case "phone":          return "Phone (OTP)";
     case "password":       return "Email / Password";
-    default:               return provider || "—";
+    default:               return provider || "Guest Session";
   }
 }
 
@@ -89,8 +88,6 @@ function renderValue(val: unknown): string {
   if (typeof val === "object") return JSON.stringify(val, null, 2);
   return String(val);
 }
-
-// ─── Collapsible section ──────────────────────────────────────────────────────
 
 function Section({
   label,
@@ -163,31 +160,38 @@ function Section({
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
 export function MyProfile() {
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
+  const [localUser, setLocalUser] = useState<LocalProfile | null>(null);
   const [activityLogs, setActivityLogs] = useState<SubCollectionItem[]>([]);
   const [sections, setSections] = useState<SectionData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
+  const { requestProtectedAction } = useProtectedAction();
 
   const loadData = async () => {
     setLoading(true);
-    setError(null);
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("Not signed in.");
+    const currentUser = auth.currentUser;
+    const local = storageService.getUserProfile();
+    setLocalUser(local);
 
-      // ── 1. User document ────────────────────────────────────────────────────
-      const userSnap = await getDoc(doc(db, "users", user.uid));
+    if (!currentUser) {
+      setIsGuest(true);
+      setLoading(false);
+      return;
+    }
+
+    setIsGuest(false);
+    try {
+      // 1. User document
+      const userSnap = await getDoc(doc(db, "users", currentUser.uid));
       if (userSnap.exists()) {
         setUserDoc(userSnap.data() as UserDoc);
       }
 
-      // ── 2. Activity logs (latest 20) ────────────────────────────────────────
+      // 2. Activity logs
       const logsQ = query(
-        collection(db, "users", user.uid, "activityLogs"),
+        collection(db, "users", currentUser.uid, "activityLogs"),
         orderBy("createdAt", "desc"),
         limit(20)
       );
@@ -196,7 +200,7 @@ export function MyProfile() {
         logsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as SubCollectionItem))
       );
 
-      // ── 3. Sub-collections ──────────────────────────────────────────────────
+      // 3. Sub-collections
       const subCols: { key: string; label: string; icon: React.ReactNode }[] = [
         { key: "prescriptions",     label: "Prescription Scans",  icon: <FileText   className="h-4 w-4" /> },
         { key: "xrayScans",         label: "X-Ray Scans",         icon: <Bone       className="h-4 w-4" /> },
@@ -212,7 +216,7 @@ export function MyProfile() {
         subCols.map(async ({ key, label, icon }) => {
           try {
             const q = query(
-              collection(db, "users", user.uid, key),
+              collection(db, "users", currentUser.uid, key),
               orderBy("createdAt", "desc"),
               limit(50)
             );
@@ -230,7 +234,7 @@ export function MyProfile() {
       );
       setSections(loaded);
     } catch (err) {
-      setError((err as Error).message ?? "Failed to load data.");
+      console.error("[MyProfile] loadData failed:", err);
     } finally {
       setLoading(false);
     }
@@ -238,36 +242,65 @@ export function MyProfile() {
 
   useEffect(() => { loadData(); }, []);
 
-  // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center gap-3 text-white/60">
         <Loader2 className="h-5 w-5 animate-spin" />
-        <span className="text-sm">Loading your data from Firestore…</span>
+        <span className="text-sm">Loading health profile…</span>
       </div>
     );
   }
 
-  if (error) {
+  // Friendly Guest View
+  if (isGuest) {
     return (
-      <GlassCard className="text-center">
-        <p className="mb-4 text-sm text-red-300">{error}</p>
-        <button
-          onClick={loadData}
-          className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15"
-        >
-          <RefreshCw className="h-4 w-4" /> Retry
-        </button>
-      </GlassCard>
+      <div className="space-y-6">
+        <GlassCard className="liquid-glass-strong p-6 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-300">
+            <User className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-bold text-white">Guest Health Profile</h2>
+          <p className="mt-2 text-sm text-white/60 max-w-lg mx-auto leading-relaxed">
+            You are exploring MediScan AI in Guest Mode. Your records are safely saved in your browser&apos;s local storage. Sign in to back up your health records securely to the cloud.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <button
+              onClick={() => requestProtectedAction()}
+              className="rounded-xl bg-teal-400 px-6 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-teal-300 active:scale-95 shadow-lg"
+            >
+              Sign In / Create Account
+            </button>
+          </div>
+        </GlassCard>
+
+        {localUser && (
+          <GlassCard>
+            <h3 className="mb-4 text-base font-semibold text-white">Local Workspace Info</h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-xl bg-white/5 p-3.5">
+                <p className="text-xs text-white/40">Guest Name</p>
+                <p className="text-sm font-medium text-white">{localUser.name}</p>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3.5">
+                <p className="text-xs text-white/40">Session Storage</p>
+                <p className="text-sm font-medium text-emerald-300">Active (Local Browser)</p>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3.5">
+                <p className="text-xs text-white/40">Created</p>
+                <p className="text-sm font-medium text-white">{new Date(localUser.createdAt).toLocaleDateString()}</p>
+              </div>
+            </div>
+          </GlassCard>
+        )}
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* ── Header card ──────────────────────────────────────────────────────── */}
+      {/* Header card */}
       <GlassCard className="liquid-glass-strong">
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-          {/* Avatar + name */}
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-2xl font-semibold text-white">
               {(userDoc?.displayName || userDoc?.email || userDoc?.phoneNumber || "U")
@@ -276,7 +309,7 @@ export function MyProfile() {
             </div>
             <div>
               <h2 className="text-xl font-semibold text-white">
-                {userDoc?.displayName || "—"}
+                {userDoc?.displayName || "Medical Profile"}
               </h2>
               <p className="text-xs text-white/50">
                 Joined {fmtTs(userDoc?.createdAt)}
@@ -284,7 +317,6 @@ export function MyProfile() {
             </div>
           </div>
 
-          {/* Refresh */}
           <button
             onClick={loadData}
             className="inline-flex items-center gap-2 self-start rounded-xl bg-white/10 px-3 py-2 text-xs text-white/70 transition hover:bg-white/15 hover:text-white"
@@ -293,44 +325,16 @@ export function MyProfile() {
           </button>
         </div>
 
-        {/* Identity fields */}
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            {
-              icon: <Mail className="h-4 w-4" />,
-              label: "Email",
-              value: userDoc?.email || "—",
-            },
-            {
-              icon: <Phone className="h-4 w-4" />,
-              label: "Phone",
-              value: userDoc?.phoneNumber || "—",
-            },
-            {
-              icon: <Shield className="h-4 w-4" />,
-              label: "Provider",
-              value: providerLabel(userDoc?.provider || ""),
-            },
-            {
-              icon: <User className="h-4 w-4" />,
-              label: "Role",
-              value: userDoc?.role || "—",
-            },
-            {
-              icon: <Clock className="h-4 w-4" />,
-              label: "Last Login",
-              value: fmtTs(userDoc?.lastLoginAt),
-            },
-            {
-              icon: <Activity className="h-4 w-4" />,
-              label: "UID",
-              value: userDoc?.uid || "—",
-            },
+            { icon: <Mail className="h-4 w-4" />, label: "Email", value: userDoc?.email || "—" },
+            { icon: <Phone className="h-4 w-4" />, label: "Phone", value: userDoc?.phoneNumber || "—" },
+            { icon: <Shield className="h-4 w-4" />, label: "Provider", value: providerLabel(userDoc?.provider || "") },
+            { icon: <User className="h-4 w-4" />, label: "Role", value: userDoc?.role || "Patient" },
+            { icon: <Clock className="h-4 w-4" />, label: "Last Login", value: fmtTs(userDoc?.lastLoginAt) },
+            { icon: <Activity className="h-4 w-4" />, label: "User ID", value: userDoc?.uid || "—" },
           ].map(({ icon, label, value }) => (
-            <div
-              key={label}
-              className="flex items-start gap-3 rounded-xl bg-white/5 px-4 py-3"
-            >
+            <div key={label} className="flex items-start gap-3 rounded-xl bg-white/5 px-4 py-3">
               <span className="mt-0.5 text-white/40">{icon}</span>
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-wider text-white/40">{label}</p>
@@ -341,7 +345,7 @@ export function MyProfile() {
         </div>
       </GlassCard>
 
-      {/* ── Activity logs ─────────────────────────────────────────────────────── */}
+      {/* Activity logs */}
       <GlassCard className="!p-0 overflow-hidden">
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
@@ -354,7 +358,7 @@ export function MyProfile() {
         </div>
         <div className="px-5 pb-5 pt-4">
           {activityLogs.length === 0 ? (
-            <p className="py-4 text-center text-sm text-white/40">No activity yet.</p>
+            <p className="py-4 text-center text-sm text-white/40">No activity logged yet.</p>
           ) : (
             <div className="space-y-2">
               {activityLogs.map((log) => (
@@ -389,7 +393,7 @@ export function MyProfile() {
         </div>
       </GlassCard>
 
-      {/* ── Sub-collection sections ───────────────────────────────────────────── */}
+      {/* Sub-collection sections */}
       {sections.map((sec) => (
         <Section
           key={sec.collection}

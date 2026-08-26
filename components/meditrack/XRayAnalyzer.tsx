@@ -134,6 +134,8 @@ export function XRayAnalyzer() {
         });
         const data = (await res.json()) as {
           available: boolean;
+          reason?: string;
+          message?: string;
           result?: {
             isXray?: boolean;
             bodyPart?: string;
@@ -160,13 +162,19 @@ export function XRayAnalyzer() {
                   : 80,
               box: isValidBox(r.boundingBox) ? r.boundingBox : detection.box,
               boxFound: isValidBox(r.boundingBox) ? true : detection.found,
-              explanation: r.explanation || "Identified from the X-ray image.",
+              explanation: r.explanation || "Body region identified from scan (Non-diagnostic).",
               mode: "ai",
             };
           }
+        } else if (!data.available) {
+          setError(`X-Ray Analysis API Error [${data.reason || "ERROR"}]: ${data.message || "Upstream provider failure."}`);
+          setIsProcessing(false);
+          return;
         }
-      } catch {
-        /* network/AI error — fall through to local heuristic */
+      } catch (err: unknown) {
+        setError(`Failed to connect to X-Ray analysis service: ${(err as Error).message}`);
+        setIsProcessing(false);
+        return;
       }
 
       if (cancelledRef.current) return;
