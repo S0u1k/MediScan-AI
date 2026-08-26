@@ -33,68 +33,72 @@ import { FeatureSkeleton } from "./FeatureSkeleton";
 import type { DashboardTab } from "./types";
 import { isAppMode } from "@/lib/appMode";
 
-const skeleton = (label: string) => () => <FeatureSkeleton label={label} />;
+function getSkeleton(label: string) {
+  const LoadingSkeleton = () => <FeatureSkeleton label={label} />;
+  LoadingSkeleton.displayName = "LoadingSkeleton";
+  return LoadingSkeleton;
+}
 
 // Lazy-loaded merged feature modules
 const MergedOverview = dynamic(
   () => import("./MergedOverview").then((m) => m.MergedOverview),
-  { loading: skeleton("Loading overview…"), ssr: false }
+  { loading: getSkeleton("Loading overview…"), ssr: false }
 );
 const MedicineReminders = dynamic(
   () => import("./MedicineReminders").then((m) => m.MedicineReminders),
-  { loading: skeleton("Loading medicine reminders…"), ssr: false }
+  { loading: getSkeleton("Loading medicine reminders…"), ssr: false }
 );
 const PrescriptionScanner = dynamic(
   () => import("./PrescriptionScanner").then((m) => m.PrescriptionScanner),
-  { loading: skeleton("Loading prescription scanner…"), ssr: false }
+  { loading: getSkeleton("Loading prescription scanner…"), ssr: false }
 );
 const XRayAnalyzer = dynamic(
   () => import("./XRayAnalyzer").then((m) => m.XRayAnalyzer),
-  { loading: skeleton("Loading X-ray analyzer…"), ssr: false }
+  { loading: getSkeleton("Loading X-ray analyzer…"), ssr: false }
 );
 const BMICalculator = dynamic(
   () => import("./BMICalculator").then((m) => m.BMICalculator),
-  { loading: skeleton("Loading BMI calculator…"), ssr: false }
+  { loading: getSkeleton("Loading BMI calculator…"), ssr: false }
 );
 const WaterIntake = dynamic(
   () => import("./WaterIntake").then((m) => m.WaterIntake),
-  { loading: skeleton("Loading hydration tracker…"), ssr: false }
+  { loading: getSkeleton("Loading hydration tracker…"), ssr: false }
 );
 const MergedEmergency = dynamic(
   () => import("./MergedEmergency").then((m) => m.MergedEmergency),
-  { loading: skeleton("Loading emergency tools…"), ssr: false }
+  { loading: getSkeleton("Loading emergency tools…"), ssr: false }
 );
 const AIChatbot = dynamic(
   () => import("./AIChatbot").then((m) => m.AIChatbot),
-  { loading: skeleton("Loading AI assistant…"), ssr: false }
+  { loading: getSkeleton("Loading AI chatbot…"), ssr: false }
 );
 const MergedReports = dynamic(
   () => import("./MergedReports").then((m) => m.MergedReports),
-  { loading: skeleton("Loading reports…"), ssr: false }
+  { loading: getSkeleton("Loading medical report viewer…"), ssr: false }
 );
 const LabReportAnalyzer = dynamic(
   () => import("./LabReportAnalyzer").then((m) => m.LabReportAnalyzer),
-  { loading: skeleton("Loading lab report analyzer…"), ssr: false }
+  { loading: getSkeleton("Loading lab report analyzer…"), ssr: false }
 );
 const FollowUpManager = dynamic(
   () => import("./FollowUpManager").then((m) => m.FollowUpManager),
-  { loading: skeleton("Loading follow-up manager…"), ssr: false }
+  { loading: getSkeleton("Loading follow-up manager…"), ssr: false }
 );
 const PatientOnboarding = dynamic(
   () => import("./PatientOnboarding").then((m) => m.PatientOnboarding),
-  { loading: skeleton("Loading onboarding…"), ssr: false }
+  { loading: getSkeleton("Loading onboarding…"), ssr: false }
 );
 const ContactUs = dynamic(
   () => import("./ContactUs").then((m) => m.ContactUs),
-  { loading: skeleton("Loading contact page…"), ssr: false }
+  { loading: getSkeleton("Loading contact support…"), ssr: false }
 );
 const MyProfile = dynamic(
   () => import("./MyProfile").then((m) => m.MyProfile),
-  { loading: skeleton("Loading your profile…"), ssr: false }
+  { loading: getSkeleton("Loading profile…"), ssr: false }
 );
 const PrivacyDataControl = dynamic(
   () => import("./PrivacyDataControl").then((m) => m.PrivacyDataControl),
-  { loading: skeleton("Loading privacy settings…"), ssr: false }
+  { loading: getSkeleton("Loading privacy controls…"), ssr: false }
 );
 
 interface MediTrackDashboardProps {
