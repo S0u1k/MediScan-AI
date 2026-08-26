@@ -60,5 +60,10 @@ Thumbs.db
 *.sln
 *.sw?
 
+# ===== Local Caches & Deployment Toolchains =====
+Cache/
+.npm-cache/
+
 # ===== Vercel =====
 .vercel
+
