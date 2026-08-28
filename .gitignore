@@ -67,3 +67,4 @@ Cache/
 # ===== Vercel =====
 .vercel
 
+.env*
