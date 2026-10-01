@@ -13,6 +13,7 @@ import { decideProtectedAction } from "@/lib/gating";
 import { resolveUserIdentity, type Session } from "@/lib/identity";
 import { useAuth, type AuthResult } from "./useAuth";
 import { useAuthModal } from "./useAuthModal";
+import { storageService } from "@/lib/storage";
 
 interface AuthContextValue {
   session: Session;
@@ -28,6 +29,8 @@ interface AuthContextValue {
   signInWithPhone: (phone: string, containerId: string) => Promise<AuthResult>;
   /** Confirms the OTP entered by the user. */
   verifyOTP: (otp: string) => Promise<AuthResult>;
+  /** Sends a password reset email link to the user. */
+  sendPasswordReset: (email: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
   /** Runs `action` when authenticated, otherwise opens the auth modal. */
   requestProtectedAction: (
@@ -40,8 +43,17 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { session, authReady, signIn, signUp, signInWithGoogle, signInWithPhone, verifyOTP, signOut } =
-    useAuth();
+  const {
+    session,
+    authReady,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    signInWithPhone,
+    verifyOTP,
+    sendPasswordReset,
+    signOut,
+  } = useAuth();
   const { isOpen, openModal, closeModal } = useAuthModal();
 
   // Prefetch the dashboard route/chunks up front so navigation after login is
@@ -112,9 +124,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleSignOut = useCallback(async (): Promise<void> => {
     await signOut();
-    // Clear stale local state so the landing page shows Guest User cleanly.
+    // Clear all medical and user data so next session starts completely clean
     if (typeof window !== "undefined") {
-      localStorage.removeItem("mediscan_user_profile");
+      storageService.clearAllData();
     }
     router.push("/");
   }, [signOut, router]);
@@ -134,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle: handleGoogle,
       signInWithPhone: handlePhone,
       verifyOTP: handleVerifyOTP,
+      sendPasswordReset,
       signOut: handleSignOut,
       requestProtectedAction,
     }),
@@ -147,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       handleGoogle,
       handlePhone,
       handleVerifyOTP,
+      sendPasswordReset,
       handleSignOut,
       requestProtectedAction,
     ]

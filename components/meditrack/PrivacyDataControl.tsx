@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut as firebaseSignOut } from "firebase/auth";
+import { storageService } from "@/lib/storage";
 import { GlassCard, GlassButton } from "./ui";
 import {
   deleteAllUserMedicalData,
@@ -383,10 +384,17 @@ export function PrivacyDataControl() {
         "success"
       );
 
+      // Get user ID token if available for authenticated request
+      const token = await auth.currentUser?.getIdToken().catch(() => null);
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       // Call server API for Firestore + Auth deletion
       const res = await fetch("/api/account/delete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ uid, email }),
       });
 
@@ -410,7 +418,7 @@ export function PrivacyDataControl() {
           /* ignore */
         }
         if (typeof window !== "undefined") {
-          localStorage.removeItem("mediscan_user_profile");
+          storageService.clearAllData();
         }
 
         setToast({

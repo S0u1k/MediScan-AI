@@ -19,6 +19,13 @@ service cloud.firestore {
       }
     }
 
+    // Global activity logs (admin view)
+    // Authenticated users can write their own activity logs.
+    match /activityLogs/{logId} {
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      allow read, delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;

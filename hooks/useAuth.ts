@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
   signInWithPopup,
@@ -13,6 +14,14 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider, RecaptchaVerifier } from "@/lib/firebase";
 import { ensureUserDocument, saveActivityLog } from "@/lib/firestoreService";
+import { storageService } from "@/lib/storage";
+import {
+  normalizeEmail,
+  normalizePhoneNumber,
+  validateEmail,
+  validatePassword,
+  mapFirebaseAuthError,
+} from "@/lib/authUtils";
 import type { Session } from "@/lib/identity";
 
 export interface AuthResult {
@@ -33,6 +42,8 @@ export interface UseAuth {
   signInWithPhone: (phone: string, containerId: string) => Promise<AuthResult>;
   /** Verifies the OTP entered by the user. */
   verifyOTP: (otp: string) => Promise<AuthResult>;
+  /** Sends a password reset email link to the user. */
+  sendPasswordReset: (email: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
 }
 
@@ -110,9 +121,9 @@ export function useAuth(): UseAuth {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log("[Auth] onAuthStateChanged:", user ? user.email : "null (guest)");
       if (!user) {
-        // Clear stale localStorage profile when Firebase confirms no user.
+        // Clear stale local profile and medical data when confirmed logged out
         if (typeof window !== "undefined") {
-          localStorage.removeItem("mediscan_user_profile");
+          storageService.clearAllData();
         }
       } else {
         // Ensure the user document exists in Firestore with readable fields.
@@ -132,16 +143,23 @@ export function useAuth(): UseAuth {
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<AuthResult> => {
-      console.log("[Auth] Email sign-in started:", email);
+      const cleanEmail = normalizeEmail(email);
+      const emailVal = validateEmail(cleanEmail);
+      if (!emailVal.valid) return { ok: false, error: emailVal.error };
+
+      const passVal = validatePassword(password, false);
+      if (!passVal.valid) return { ok: false, error: passVal.error };
+
+      console.log("[Auth] Email sign-in started:", cleanEmail);
       try {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, cleanEmail, password);
         console.log("[Auth] Email sign-in SUCCESS");
         return { ok: true };
       } catch (err) {
         const code = (err as { code?: string }).code ?? "";
         const message = (err as { message?: string }).message ?? "";
         console.error("[Auth] Email sign-in FAILED:", code, message);
-        return { ok: false, error: messageForError(code, message) };
+        return { ok: false, error: mapFirebaseAuthError(code, message) };
       }
     },
     []
@@ -149,16 +167,44 @@ export function useAuth(): UseAuth {
 
   const signUp = useCallback(
     async (email: string, password: string): Promise<AuthResult> => {
-      console.log("[Auth] Email sign-up started:", email);
+      const cleanEmail = normalizeEmail(email);
+      const emailVal = validateEmail(cleanEmail);
+      if (!emailVal.valid) return { ok: false, error: emailVal.error };
+
+      const passVal = validatePassword(password, true);
+      if (!passVal.valid) return { ok: false, error: passVal.error };
+
+      console.log("[Auth] Email sign-up started:", cleanEmail);
       try {
-        await createUserWithEmailAndPassword(auth, email, password);
+        await createUserWithEmailAndPassword(auth, cleanEmail, password);
         console.log("[Auth] Email sign-up SUCCESS");
         return { ok: true };
       } catch (err) {
         const code = (err as { code?: string }).code ?? "";
         const message = (err as { message?: string }).message ?? "";
         console.error("[Auth] Email sign-up FAILED:", code, message);
-        return { ok: false, error: messageForError(code, message) };
+        return { ok: false, error: mapFirebaseAuthError(code, message) };
+      }
+    },
+    []
+  );
+
+  const sendPasswordReset = useCallback(
+    async (email: string): Promise<AuthResult> => {
+      const cleanEmail = normalizeEmail(email);
+      const emailVal = validateEmail(cleanEmail);
+      if (!emailVal.valid) return { ok: false, error: emailVal.error };
+
+      console.log("[Auth] Password reset requested for:", cleanEmail);
+      try {
+        await sendPasswordResetEmail(auth, cleanEmail);
+        console.log("[Auth] Password reset email sent successfully");
+        return { ok: true };
+      } catch (err) {
+        const code = (err as { code?: string }).code ?? "";
+        const message = (err as { message?: string }).message ?? "";
+        console.error("[Auth] Password reset FAILED:", code, message);
+        return { ok: false, error: mapFirebaseAuthError(code, message) };
       }
     },
     []
@@ -174,13 +220,18 @@ export function useAuth(): UseAuth {
       const code = (err as { code?: string }).code ?? "";
       const message = (err as { message?: string }).message ?? "";
       console.error("[Auth] Google sign-in FAILED:", code, message);
-      return { ok: false, error: messageForError(code, message) };
+      return { ok: false, error: mapFirebaseAuthError(code, message) };
     }
   }, []);
 
   const signInWithPhone = useCallback(
     async (phone: string, containerId: string): Promise<AuthResult> => {
-      console.log("[Auth] Phone sign-in started:", phone);
+      const phoneNorm = normalizePhoneNumber(phone);
+      if (!phoneNorm.valid) {
+        return { ok: false, error: phoneNorm.error };
+      }
+
+      console.log("[Auth] Phone sign-in started:", phoneNorm.formatted);
       try {
         // 1. Destroy any existing verifier instance.
         if (recaptchaVerifierRef.current) {
@@ -188,8 +239,6 @@ export function useAuth(): UseAuth {
           recaptchaVerifierRef.current = null;
         }
         // 2. Wipe the container's DOM so reCAPTCHA can render fresh.
-        //    Without this, Firebase throws "reCAPTCHA has already been rendered
-        //    in this element" on every retry.
         if (typeof window !== "undefined") {
           const el = document.getElementById(containerId);
           if (el) el.innerHTML = "";
@@ -209,7 +258,7 @@ export function useAuth(): UseAuth {
           },
         });
         recaptchaVerifierRef.current = verifier;
-        const result = await signInWithPhoneNumber(auth, phone, verifier);
+        const result = await signInWithPhoneNumber(auth, phoneNorm.formatted, verifier);
         confirmationRef.current = result;
         console.log("[Auth] OTP sent successfully");
         return { ok: true };
@@ -226,7 +275,7 @@ export function useAuth(): UseAuth {
           const el = document.getElementById(containerId);
           if (el) el.innerHTML = "";
         }
-        return { ok: false, error: messageForError(code, message) };
+        return { ok: false, error: mapFirebaseAuthError(code, message) };
       }
     },
     []
@@ -234,12 +283,16 @@ export function useAuth(): UseAuth {
 
   const verifyOTP = useCallback(
     async (otp: string): Promise<AuthResult> => {
+      const cleanOtp = otp.trim();
+      if (!cleanOtp) {
+        return { ok: false, error: "Please enter the verification code." };
+      }
       console.log("[Auth] OTP verification started");
       if (!confirmationRef.current) {
         return { ok: false, error: "No OTP was sent. Please request a new code." };
       }
       try {
-        await confirmationRef.current.confirm(otp);
+        await confirmationRef.current.confirm(cleanOtp);
         confirmationRef.current = null;
         console.log("[Auth] OTP verification SUCCESS");
         return { ok: true };
@@ -247,7 +300,7 @@ export function useAuth(): UseAuth {
         const code = (err as { code?: string }).code ?? "";
         const message = (err as { message?: string }).message ?? "";
         console.error("[Auth] OTP verification FAILED:", code, message);
-        return { ok: false, error: messageForError(code, message) };
+        return { ok: false, error: mapFirebaseAuthError(code, message) };
       }
     },
     []
@@ -255,14 +308,27 @@ export function useAuth(): UseAuth {
 
   const signOut = useCallback(async (): Promise<void> => {
     console.log("[Auth] Sign-out started");
-    // Log logout before signing out (user still available).
-    saveActivityLog("logout", "Authentication", "User signed out");
+    try {
+      saveActivityLog("logout", "Authentication", "User signed out");
+    } catch {
+      /* ignore */
+    }
     await firebaseSignOut(auth);
     if (typeof window !== "undefined") {
-      localStorage.removeItem("mediscan_user_profile");
+      storageService.clearAllData();
     }
     console.log("[Auth] Sign-out complete");
   }, []);
 
-  return { session, authReady, signIn, signUp, signInWithGoogle, signInWithPhone, verifyOTP, signOut };
+  return {
+    session,
+    authReady,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    signInWithPhone,
+    verifyOTP,
+    sendPasswordReset,
+    signOut,
+  };
 }

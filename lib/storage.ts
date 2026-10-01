@@ -368,7 +368,11 @@ class StorageService {
    */
   getOrCreateUserProfile(email: string, name?: string): UserProfile {
     const existing = this.getUserProfile();
-    if (existing && existing.email === email) return existing;
+    if (existing) {
+      if (existing.email === email) return existing;
+      // Active user has changed! Wipe previous user's data to prevent cross-account leakage.
+      this.clearAllData();
+    }
 
     const profile: UserProfile = {
       id: Date.now().toString(),

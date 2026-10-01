@@ -52,6 +52,63 @@ export async function POST(request: Request) {
     );
   }
 
+  // ── Step 0: Security & Token Verification ──────────────────────────────
+  const authHeader = request.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : null;
+
+  const encoded = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
+  let adminAuthInstance: any = null;
+
+  if (encoded) {
+    try {
+      const adminAppModule = "firebase-admin/app";
+      const adminAuthModule = "firebase-admin/auth";
+      const adminApp = await (new Function("m", "return import(m)")(adminAppModule));
+      const adminAuth = await (new Function("m", "return import(m)")(adminAuthModule));
+
+      let app;
+      if (adminApp.getApps().length > 0) {
+        app = adminApp.getApps()[0];
+      } else {
+        const serviceAccount = JSON.parse(
+          Buffer.from(encoded, "base64").toString("utf-8")
+        );
+        app = adminApp.initializeApp({
+          credential: adminApp.cert(serviceAccount),
+        });
+      }
+      adminAuthInstance = adminAuth.getAuth(app);
+    } catch (err) {
+      console.error("[AccountDelete] Admin SDK init failed:", err);
+    }
+  }
+
+  // If Admin SDK is enabled, enforce token verification and identity match
+  if (adminAuthInstance) {
+    if (!bearerToken) {
+      return NextResponse.json(
+        { success: false, reason: "unauthorized", message: "Missing Authorization Bearer token." },
+        { status: 401 }
+      );
+    }
+    try {
+      const decoded = await adminAuthInstance.verifyIdToken(bearerToken);
+      if (decoded.uid !== uid) {
+        return NextResponse.json(
+          { success: false, reason: "forbidden", message: "Forbidden: Token UID does not match requested UID." },
+          { status: 403 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { success: false, reason: "invalid-token", message: "Invalid or expired authorization token." },
+        { status: 401 }
+      );
+    }
+  }
+
   let firestoreDeleted = false;
   let totalDeleted = 0;
   let authDeleted = false;
@@ -122,36 +179,16 @@ export async function POST(request: Request) {
       errors.push(`Failed to delete user doc: ${(err as Error).message}`);
     }
 
-    firestoreDeleted = true;
+    firestoreDeleted = errors.length === 0;
   } catch (err) {
     errors.push(`Firestore deletion failed: ${(err as Error).message}`);
+    firestoreDeleted = false;
   }
 
   // ── Step 2: Attempt Firebase Auth user deletion via Admin SDK ────────────
-  // Uses eval-based dynamic import to prevent webpack from bundling
-  // firebase-admin (which may not be installed).
-  const encoded = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
-  if (encoded) {
+  if (adminAuthInstance) {
     try {
-      // Prevent webpack static analysis from resolving these modules
-      const adminAppModule = "firebase-admin/app";
-      const adminAuthModule = "firebase-admin/auth";
-      const adminApp = await (new Function("m", "return import(m)")(adminAppModule));
-      const adminAuth = await (new Function("m", "return import(m)")(adminAuthModule));
-
-      let app;
-      if (adminApp.getApps().length > 0) {
-        app = adminApp.getApps()[0];
-      } else {
-        const serviceAccount = JSON.parse(
-          Buffer.from(encoded, "base64").toString("utf-8")
-        );
-        app = adminApp.initializeApp({
-          credential: adminApp.cert(serviceAccount),
-        });
-      }
-
-      await adminAuth.getAuth(app).deleteUser(uid);
+      await adminAuthInstance.deleteUser(uid);
       authDeleted = true;
     } catch (err) {
       console.error("[AccountDelete] Admin SDK auth deletion failed:", err);
@@ -161,11 +198,11 @@ export async function POST(request: Request) {
 
   // ── Step 3: Return result ────────────────────────────────────────────────
   return NextResponse.json({
-    success: firestoreDeleted,
+    success: firestoreDeleted || authDeleted,
     firestoreDeleted,
     authDeleted,
     totalDeleted,
-    adminSdkConfigured: !!encoded,
+    adminSdkConfigured: !!adminAuthInstance,
     message: authDeleted
       ? "Account and all data permanently deleted."
       : firestoreDeleted

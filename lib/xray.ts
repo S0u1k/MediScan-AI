@@ -253,21 +253,23 @@ export function looksLikeXray(img: HTMLImageElement): XRayLikeness {
     const min = Math.min(r, g, b);
     const sat = max === 0 ? 0 : (max - min) / max; // HSV saturation
     satSum += sat;
-    if (max - min > 40) colorfulPixels++; // notable color spread
+    // Standard color photos have large differences between color channels (>65) with high saturation (>0.45)
+    if (max - min > 65 && sat > 0.45) colorfulPixels++;
   }
   const meanSat = satSum / total;
   const colorfulRatio = colorfulPixels / total;
 
-  // X-rays: mean saturation is very low and few pixels are colorful.
-  // Thresholds chosen to accept slightly tinted scans but reject photos.
-  const isXray = meanSat < 0.18 && colorfulRatio < 0.2;
+  // Real medical X-rays (even with blue lightbox glow or amber film tints) typically have
+  // mean saturation < 0.38 and colorfulRatio < 0.45.
+  // Everyday colorful photos (landscapes, selfies, clothes) easily exceed these.
+  const isXray = meanSat < 0.38 && colorfulRatio < 0.45;
 
   return {
     isXray,
     saturation: meanSat,
     reason: isXray
-      ? "Image is near-monochrome, consistent with an X-ray."
-      : "Image is colorful, which is not consistent with an X-ray scan.",
+      ? "Image is consistent with a medical radiograph."
+      : "Image appears to be a color photograph rather than an X-ray scan.",
   };
 }
 

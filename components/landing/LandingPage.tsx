@@ -25,6 +25,7 @@ export function LandingPage() {
     signInWithGoogle,
     signInWithPhone,
     verifyOTP,
+    sendPasswordReset,
     signOut,
     requestProtectedAction,
   } = useProtectedAction();
@@ -87,6 +88,7 @@ export function LandingPage() {
         onGoogleSignIn={signInWithGoogle}
         onPhoneSignIn={signInWithPhone}
         onVerifyOTP={verifyOTP}
+        onPasswordReset={sendPasswordReset}
       />
     </>
   );

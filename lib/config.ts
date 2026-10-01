@@ -52,8 +52,8 @@ export const AI_MODELS = {
     provider: "Anthropic",
   },
   vision: {
-    id: "google/gemini-3.1-pro-preview",
-    name: "Gemini 3.1 Pro Preview",
+    id: "google/gemini-2.5-flash-lite",
+    name: "Gemini 2.5 Flash Lite",
     provider: "Google",
   },
 } as const;

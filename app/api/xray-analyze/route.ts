@@ -145,22 +145,15 @@ export async function POST(request: Request) {
 
   const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, "");
 
-  // Candidate vision models hierarchy: user-configured -> verified free vision models -> standard models
+  // Candidate vision models hierarchy: prioritized for ultra-fast response and high visual accuracy
   const configuredModel = process.env.OPENROUTER_GEMINI_MODEL || AI_MODELS.vision.id;
   const candidateModels = Array.from(
     new Set([
       configuredModel,
-      "dots-studio/dots-3-note-preview:free",
-      "stealth/space-bunny-alpha",
-      "openrouter/free",
-      "google/gemma-4-26b-a4b-it:free",
-      "qwen/qwen3.8-27b:free",
-      "google/gemini-2.0-flash-exp:free",
+      "google/gemini-2.5-flash-lite",
       "google/gemini-2.5-flash",
+      "google/gemini-3.5-flash-lite",
       "google/gemini-2.5-pro",
-      "google/gemini-3.1-pro-preview",
-      "anthropic/claude-3.5-sonnet",
-      "openai/gpt-4o",
     ])
   );
 
@@ -172,7 +165,7 @@ export async function POST(request: Request) {
       const text = await callGemini({
         apiKey,
         model,
-        maxTokens: 1500,
+        maxTokens: 550,
         temperature: 0.1,
         contents: [
           {

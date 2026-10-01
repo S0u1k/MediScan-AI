@@ -169,13 +169,18 @@ export async function saveActivityLog(
     createdAt: serverTimestamp(),
   };
 
+  // 1. Per-user activity log (always safe under /users/{uid}/activityLogs)
   try {
-    // Per-user activity log
     await addDoc(collection(db, "users", user.uid, "activityLogs"), log);
-    // Global admin activity log
-    await addDoc(collection(db, "activityLogs"), log);
   } catch (err) {
-    console.error("[Firestore] saveActivityLog failed:", err);
+    console.warn("[Firestore] Failed to save user activity log:", err);
+  }
+
+  // 2. Global activity log (in separate try/catch so permission errors never crash the app)
+  try {
+    await addDoc(collection(db, "activityLogs"), log);
+  } catch {
+    // Global activity logs may be restricted if admin rules are not deployed; safe to ignore
   }
 }
 

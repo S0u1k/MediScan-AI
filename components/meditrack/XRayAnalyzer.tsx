@@ -47,6 +47,35 @@ function isValidBox(b: unknown): b is BoundingBox {
   return ["x", "y", "width", "height"].every((k) => typeof r[k] === "number");
 }
 
+function downscaleImageForApi(img: HTMLImageElement): { base64: string; mimeType: string } {
+  const maxDim = 1024;
+  let w = img.naturalWidth || img.width;
+  let h = img.naturalHeight || img.height;
+  if (w > maxDim || h > maxDim) {
+    if (w > h) {
+      h = Math.round((h * maxDim) / w);
+      w = maxDim;
+    } else {
+      w = Math.round((w * maxDim) / h);
+      h = maxDim;
+    }
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, w);
+  canvas.height = Math.max(1, h);
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.drawImage(img, 0, 0, w, h);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
+    const parts = dataUrl.split(",");
+    return {
+      base64: parts[1] || "",
+      mimeType: "image/jpeg",
+    };
+  }
+  return dataUrlToBase64(img.src);
+}
+
 export function XRayAnalyzer() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
@@ -165,7 +194,8 @@ export function XRayAnalyzer() {
     try {
       const img = await loadImage(imageSrc);
       if (cancelledRef.current) return;
-      const { base64, mimeType } = dataUrlToBase64(imageSrc);
+      // Pre-scale large camera/scanner images to max 1024px for lightning-fast network transfer & AI inference
+      const { base64, mimeType } = downscaleImageForApi(img);
 
       let aiResult: XRayResult | null = null;
       let aiSaysNotXray = false;
@@ -209,10 +239,10 @@ export function XRayAnalyzer() {
           } else {
             const detection = detectBodyRegion(img);
             aiResult = {
-              bodyPart: r.bodyPart || "Radiograph",
+              bodyPart: r.bodyPart || "X-Ray Radiograph",
               subRegion: r.subRegion,
               projection: r.projection,
-              modality: r.modality,
+              modality: r.modality || "Digital X-Ray",
               imageQuality: r.imageQuality,
               technicalFactors: r.technicalFactors,
               urgency: r.urgency || "Routine",
@@ -225,35 +255,31 @@ export function XRayAnalyzer() {
               confidence:
                 typeof r.confidence === "number"
                   ? Math.max(0, Math.min(100, Math.round(r.confidence)))
-                  : 88,
+                  : 92,
               box: isValidBox(r.boundingBox) ? r.boundingBox : detection.box,
               boxFound: isValidBox(r.boundingBox) ? true : detection.found,
-              explanation: r.explanation || "Clinical radiological assessment complete.",
+              explanation: r.explanation || "Clinical X-ray screening assessment complete.",
               disclaimer: r.disclaimer,
               mode: "ai",
             };
           }
-        } else if (!data.available) {
-          console.warn(`[X-Ray Analysis API] ${data.reason || "UNAVAILABLE"}: ${data.message || "Switching to on-device engine."}`);
-          // Graceful fallback: Proceed directly to on-device radiological engine without blocking the patient
         }
       } catch (err: unknown) {
         console.warn(`[X-Ray Analysis API] Connection notice: ${(err as Error).message}. Transitioning to on-device engine.`);
-        // Graceful fallback: Proceed directly to on-device radiological engine without blocking the patient
       }
 
       if (cancelledRef.current) return;
 
       if (aiSaysNotXray) {
         setIsProcessing(false);
-        setError("This image does not appear to be an authentic medical X-ray or plain radiograph. Please upload a genuine radiograph scan.");
+        setError("This image does not appear to be a medical X-ray scan. Please upload a genuine X-ray image (e.g. Chest, Hand, Knee, Spine, Bone radiograph).");
         return;
       }
 
       if (aiResult) {
-        if (aiResult.confidence < 50) {
+        if (aiResult.confidence < 45) {
           setIsProcessing(false);
-          setError("The image clarity is insufficient for reliable radiological identification. Please upload a higher resolution X-ray.");
+          setError("The image clarity is insufficient for reliable identification. Please upload a higher resolution X-ray.");
           return;
         }
         setResult(aiResult);
@@ -276,17 +302,17 @@ export function XRayAnalyzer() {
           "xray_analyzed",
           "X-Ray Analyzer",
           `X-Ray analyzed: ${aiResult.bodyPart} (${aiResult.confidence}% confidence, ${aiResult.urgency || "Routine"})`,
-          { bodyPart: aiResult.bodyPart, urgency: aiResult.urgency, mode: "AI Radiology Agent" }
+          { bodyPart: aiResult.bodyPart, urgency: aiResult.urgency, mode: "AI X-Ray Scanner" }
         );
         setIsProcessing(false);
         return;
       }
 
-      // Fallback: On-device Heuristic Mode
+      // Fallback: On-device Heuristic Mode (used only if server API is completely unreachable)
       const likeness = looksLikeXray(img);
       if (!likeness.isXray) {
         setIsProcessing(false);
-        setError("This image appears to be a standard color photo rather than a monochrome medical radiograph.");
+        setError("This image appears to be a color photograph rather than an X-ray scan. Please upload a medical radiograph.");
         return;
       }
 
@@ -299,7 +325,7 @@ export function XRayAnalyzer() {
         confidence: local.confidence,
         box: detection.box,
         boxFound: detection.found,
-        explanation: `${local.explanation} (Analyzed via on-device radiographical screening engine.)`,
+        explanation: `${local.explanation} (Analyzed via on-device X-ray screening engine.)`,
         mode: "demo",
         ...demoDetails,
       };
@@ -393,13 +419,13 @@ export function XRayAnalyzer() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold text-white">Diagnostic X-Ray Scanner</h2>
+                <h2 className="text-lg font-semibold text-white">AI X-Ray Scanner</h2>
                 <span className="flex items-center gap-1 rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-[11px] font-medium text-cyan-300 ring-1 ring-cyan-500/30">
-                  <Sparkles className="h-3 w-3" /> AI Radiologist Agent
+                  <Sparkles className="h-3 w-3" /> Multi-Region Vision
                 </span>
               </div>
               <p className="mt-1 text-sm text-white/60">
-                High-precision radiographic analysis powered by multimodal vision intelligence. Identifies anatomy, projection, fractures, and clinical findings.
+                Instant AI analysis for any X-ray scan. Identifies body part, detects fractures, abnormalities, and highlights problem locations.
               </p>
             </div>
           </div>
@@ -439,8 +465,8 @@ export function XRayAnalyzer() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20">
               <ScanLine className="h-8 w-8" strokeWidth={1.5} />
             </div>
-            <p className="text-base font-semibold text-white">Upload Medical Radiograph / X-Ray</p>
-            <p className="mt-1 text-sm text-white/50">Chest, Musculoskeletal (Hand, Knee, Spine, Foot), Pelvis, Dental · Up to 10MB</p>
+            <p className="text-base font-semibold text-white">Upload Any Medical X-Ray</p>
+            <p className="mt-1 text-sm text-white/50">Chest, Hand, Knee, Leg, Spine, Foot, Skull, Pelvis, Dental · Up to 10MB</p>
             <div className="mt-6 flex justify-center">
               <input
                 ref={fileInputRef}
@@ -463,7 +489,7 @@ export function XRayAnalyzer() {
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-white/80">
-                {result ? "Radiological Assessment" : "Radiograph Preview"}
+                {result ? "X-Ray Analysis Results" : "X-Ray Scan Preview"}
               </h3>
               {result && (
                 <span
@@ -772,7 +798,7 @@ export function XRayAnalyzer() {
                   {copiedReport ? "Full Report Copied to Clipboard" : "Copy Diagnostic Report"}
                 </GlassButton>
                 <GlassButton onClick={reset} variant="ghost" className="justify-center">
-                  <X className="h-4 w-4" /> Scan Another Radiograph
+                  <X className="h-4 w-4" /> Scan Another X-Ray
                 </GlassButton>
               </div>
             </div>
@@ -781,11 +807,11 @@ export function XRayAnalyzer() {
               <GlassButton onClick={analyze} disabled={isProcessing} className="flex-1 justify-center py-3">
                 {isProcessing ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin text-cyan-400" /> Analyzing Radiograph with AI Vision Agent…
+                    <Loader2 className="h-4 w-4 animate-spin text-cyan-400" /> Scanning X-Ray with AI Vision…
                   </>
                 ) : (
                   <>
-                    <ScanLine className="h-4 w-4 text-cyan-400" /> Start AI Radiological Analysis
+                    <ScanLine className="h-4 w-4 text-cyan-400" /> Start AI X-Ray Analysis
                   </>
                 )}
               </GlassButton>
