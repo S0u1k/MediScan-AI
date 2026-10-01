@@ -20,6 +20,10 @@ export const XRAY_BODY_PARTS = [
   "Foot",
   "Shoulder",
   "Arm",
+  "Pelvis",
+  "Abdomen",
+  "Dental",
+  "Other",
 ] as const;
 export type XRayBodyPart = (typeof XRAY_BODY_PARTS)[number];
 
@@ -31,6 +35,21 @@ export interface BoundingBox {
   height: number;
 }
 
+export interface AnatomicalCheckItem {
+  structure: string;
+  status: "Normal" | "Suspicious" | "Abnormal" | "Not Assessable" | string;
+  details: string;
+}
+
+export interface SuspectedAbnormality {
+  title: string;
+  location: string;
+  description: string;
+  confidence: number;
+}
+
+export type XRayUrgency = "Routine" | "Moderate" | "Urgent" | "Emergency";
+
 export interface XRayResult {
   bodyPart: string;
   confidence: number; // 0-100
@@ -38,6 +57,21 @@ export interface XRayResult {
   boxFound: boolean;
   explanation: string;
   mode: "ai" | "demo";
+  // Enhanced clinical radiological diagnostic attributes
+  isXray?: boolean;
+  subRegion?: string;
+  projection?: string;
+  modality?: string;
+  imageQuality?: "Optimal" | "Adequate" | "Sub-optimal" | "Poor" | string;
+  technicalFactors?: string;
+  urgency?: XRayUrgency;
+  fractureDetected?: boolean;
+  anatomicalChecklist?: AnatomicalCheckItem[];
+  findings?: string[];
+  suspectedAbnormalities?: SuspectedAbnormality[];
+  impression?: string;
+  recommendations?: string[];
+  disclaimer?: string;
 }
 
 export interface XRayLikeness {
@@ -262,11 +296,84 @@ export function bodyPartFromFileName(fileName: string): XRayBodyPart | null {
     arm: "Arm",
     elbow: "Arm",
     humerus: "Arm",
+    pelvis: "Pelvis",
+    hip: "Pelvis",
+    abdomen: "Abdomen",
+    stomach: "Abdomen",
+    dental: "Dental",
+    tooth: "Dental",
+    teeth: "Dental",
+    jaw: "Dental",
+    orthopantomogram: "Dental",
   };
   for (const key of Object.keys(map)) {
     if (name.includes(key)) return map[key];
   }
   return null;
+}
+
+/**
+ * Returns structured demonstration radiological findings for fallback / demo preview.
+ */
+export function getDemoDiagnosticDetails(bodyPart: string): Partial<XRayResult> {
+  const norm = bodyPart.toLowerCase();
+  if (norm.includes("chest")) {
+    return {
+      subRegion: "Thorax, Bilateral Lung Fields, Cardiac Contour, Costophrenic Angles",
+      projection: "Posteroanterior (PA)",
+      modality: "Digital Plain Radiograph (Chest X-Ray)",
+      imageQuality: "Adequate",
+      technicalFactors: "Adequate inspiratory volume, central clavicular alignment, no gross rotation artifacts.",
+      urgency: "Routine",
+      fractureDetected: false,
+      anatomicalChecklist: [
+        { structure: "Lung Parenchyma & Pleura", status: "Normal", details: "Clear bilateral lung fields without focal consolidation, pneumothorax, or large pleural effusion." },
+        { structure: "Cardiomediastinal Contour", status: "Normal", details: "Cardiothoracic ratio within physiological limits (<0.50). Mediastinal width normal." },
+        { structure: "Costophrenic Angles & Diaphragms", status: "Normal", details: "Bilateral costophrenic and cardiophrenic sulci sharp and well-delineated." },
+        { structure: "Thoracic Skeletal Cage", status: "Normal", details: "Visualized clavicles, ribs, and thoracic vertebral bodies show continuous cortical margins." },
+      ],
+      findings: [
+        "Lungs are well-aerated bilaterally without active focal alveolar infiltrates.",
+        "Normal cardiac size and mediastinal contours.",
+        "Sharp bilateral costophrenic angles; no overt pleural effusion.",
+        "Visualized osseous thorax shows no displaced fracture or acute dislocation.",
+      ],
+      suspectedAbnormalities: [],
+      impression: "1. Normal chest radiograph. No acute cardiopulmonary disease, focal consolidation, pneumothorax, or acute bony injury visualized.",
+      recommendations: [
+        "Routine clinical correlation with presenting symptoms (e.g. cough, fever, or chest discomfort).",
+        "Consult your treating physician for comprehensive evaluation.",
+      ],
+      disclaimer: "AI-assisted preliminary radiographical screening. Not a definitive medical diagnosis. Must be reviewed by a certified radiologist.",
+    };
+  }
+
+  return {
+    subRegion: `${bodyPart} - Bone Shaft, Articular Margins & Periarticular Soft Tissue`,
+    projection: "Anteroposterior (AP) / Lateral",
+    modality: "Digital Plain Radiograph (Musculoskeletal X-Ray)",
+    imageQuality: "Adequate",
+    technicalFactors: "Adequate bone penetration and anatomical coverage across visualized field.",
+    urgency: "Routine",
+    fractureDetected: false,
+    anatomicalChecklist: [
+      { structure: "Cortical Bone & Continuity", status: "Normal", details: "Smooth cortical margins without acute step-off, disruption, or periosteal reaction." },
+      { structure: "Joint Space & Alignment", status: "Normal", details: "Joint spaces congruent and preserved; no gross dislocation or subluxation." },
+      { structure: "Soft Tissue Architecture", status: "Normal", details: "No obvious radiopaque foreign bodies or asymmetric periarticular soft tissue distension." },
+    ],
+    findings: [
+      `Visualized cortical architecture of the ${bodyPart} appears intact.`,
+      "Joint spacing and alignment within normal physiological parameters.",
+      "No overt radio-dense foreign bodies or gross soft tissue swelling.",
+    ],
+    suspectedAbnormalities: [],
+    impression: `1. Visualized radiograph of the ${bodyPart} demonstrates preserved bony alignment without obvious acute displaced fracture or gross dislocation.`,
+    recommendations: [
+      "Correlate with localized physical tenderness and clinical range of motion.",
+      "If pain persists or clinical suspicion for occult fracture is high, orthogonal follow-up view or specialist consultation is recommended.",
+    ],
+    disclaimer: "AI-assisted preliminary radiographical screening. Not a definitive medical diagnosis. Must be reviewed by a certified radiologist.",
+  };
 }
 
 /**
@@ -313,3 +420,4 @@ export function classifyBodyPart(
   const confidence = Math.round(70 + Math.min(20, area * 25));
   return { bodyPart, confidence: Math.min(confidence, 92), explanation };
 }
+

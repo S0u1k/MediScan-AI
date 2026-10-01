@@ -72,6 +72,12 @@ export interface XRayAnalysis {
   // Bounding box as fractions (0-1) of image dimensions
   box: { x: number; y: number; width: number; height: number };
   createdAt: string;
+  subRegion?: string;
+  projection?: string;
+  urgency?: "Routine" | "Moderate" | "Urgent" | "Emergency";
+  fractureDetected?: boolean;
+  findings?: string[];
+  impression?: string;
 }
 
 export interface WaterLog {
