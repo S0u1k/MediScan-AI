@@ -103,16 +103,16 @@ export async function POST(request: Request) {
   const rateLimit = checkRateLimit(ip, 20);
   if (!rateLimit.allowed) {
     return NextResponse.json(
-      { available: false, reason: "PROVIDER_RATE_LIMITED", message: "Rate limit exceeded. Please try again later." },
-      { status: 429 }
+      { available: false, reason: "PROVIDER_RATE_LIMITED", message: "Rate limit reached. Transitioning to on-device engine." },
+      { status: 200 }
     );
   }
 
   const apiKey = getGeminiKey();
   if (!apiKey) {
     return NextResponse.json(
-      { available: false, reason: "MISSING_API_KEY", message: "API key is missing on the server." },
-      { status: 500 }
+      { available: false, reason: "MISSING_API_KEY", message: "API key is missing on the server. Transitioning to on-device engine." },
+      { status: 200 }
     );
   }
 
@@ -145,14 +145,20 @@ export async function POST(request: Request) {
 
   const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, "");
 
-  // Candidate vision models hierarchy: user-configured -> Gemini 2.5 Pro -> Gemini 3.1 Pro -> Gemini 2.5 Flash -> Claude 3.5 Sonnet
+  // Candidate vision models hierarchy: user-configured -> verified free vision models -> standard models
   const configuredModel = process.env.OPENROUTER_GEMINI_MODEL || AI_MODELS.vision.id;
   const candidateModels = Array.from(
     new Set([
       configuredModel,
+      "dots-studio/dots-3-note-preview:free",
+      "stealth/space-bunny-alpha",
+      "openrouter/free",
+      "google/gemma-4-26b-a4b-it:free",
+      "qwen/qwen3.8-27b:free",
+      "google/gemini-2.0-flash-exp:free",
+      "google/gemini-2.5-flash",
       "google/gemini-2.5-pro",
       "google/gemini-3.1-pro-preview",
-      "google/gemini-2.5-flash",
       "anthropic/claude-3.5-sonnet",
       "openai/gpt-4o",
     ])
@@ -166,7 +172,7 @@ export async function POST(request: Request) {
       const text = await callGemini({
         apiKey,
         model,
-        maxTokens: 1200,
+        maxTokens: 1500,
         temperature: 0.1,
         contents: [
           {
@@ -191,15 +197,16 @@ export async function POST(request: Request) {
 
   if (!parsed || typeof parsed.isXray !== "boolean") {
     console.error("[xray-analyze] All candidate vision models failed.", lastError);
-    if (lastError instanceof OpenRouterError) {
-      return NextResponse.json(
-        { available: false, reason: lastError.reason, message: lastError.message },
-        { status: lastError.status }
-      );
-    }
     return NextResponse.json(
-      { available: false, reason: "INVALID_PROVIDER_RESPONSE", message: "Failed to obtain structured radiological evaluation from AI provider." },
-      { status: 502 }
+      {
+        available: false,
+        reason: lastError instanceof OpenRouterError ? lastError.reason : "AI_UNAVAILABLE",
+        message:
+          lastError instanceof OpenRouterError
+            ? lastError.message
+            : "AI cloud analysis unavailable. Transitioning to on-device radiograph engine.",
+      },
+      { status: 200 }
     );
   }
 

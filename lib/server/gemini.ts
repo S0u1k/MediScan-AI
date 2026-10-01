@@ -17,7 +17,12 @@ export class OpenRouterError extends Error {
 }
 
 export function getGeminiKey(): string | null {
-  return process.env.OPENROUTER_GEMINI_KEY || process.env.OPENROUTER_API_KEY || null;
+  return (
+    process.env.OPENROUTER_GEMINI_KEY ||
+    process.env.OPENROUTER_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    null
+  );
 }
 
 export interface GeminiPart {
@@ -139,9 +144,10 @@ export async function callGemini({
     }
 
     const json = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
+      choices?: { message?: { content?: string; reasoning?: string } }[];
     };
-    const content = (json.choices?.[0]?.message?.content ?? "").trim();
+    const choice = json.choices?.[0]?.message;
+    const content = (choice?.content || choice?.reasoning || "").trim();
     if (!content) {
       throw new OpenRouterError("INVALID_PROVIDER_RESPONSE", 502, "Received empty response from AI provider.");
     }
@@ -159,7 +165,14 @@ export async function callGemini({
 /** Extracts the first JSON object from a model response. */
 export function extractJSON(text: string): unknown {
   if (!text) return null;
-  let cleaned = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+  let cleaned = text.trim();
+  
+  // Extract content between ```json ... ``` or ``` ... ``` if present
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    cleaned = codeBlockMatch[1].trim();
+  }
+
   const first = cleaned.indexOf("{");
   const last = cleaned.lastIndexOf("}");
   if (first !== -1 && last !== -1 && last > first) {
