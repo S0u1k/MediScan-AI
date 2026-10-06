@@ -36,21 +36,37 @@ describe("X-Ray Diagnostic Helpers & Validation", () => {
 
   it("generates structured diagnostic details in demo mode for chest", () => {
     const chestDetails = getDemoDiagnosticDetails("Chest");
-    expect(chestDetails.modality).toContain("Chest X-Ray");
+    expect(chestDetails.modality).toContain("Chest");
     expect(chestDetails.projection).toBe("Posteroanterior (PA)");
     expect(chestDetails.urgency).toBe("Routine");
     expect(chestDetails.anatomicalChecklist).toBeDefined();
     expect(chestDetails.anatomicalChecklist!.length).toBeGreaterThanOrEqual(3);
     expect(chestDetails.findings).toBeDefined();
     expect(chestDetails.findings!.length).toBeGreaterThanOrEqual(3);
-    expect(chestDetails.impression).toContain("No acute cardiopulmonary disease");
+    expect(chestDetails.impression).toContain("Normal chest X-Ray");
   });
 
-  it("generates structured diagnostic details in demo mode for extremities", () => {
+  it("generates structured diagnostic details in demo mode for hand and extremities", () => {
     const handDetails = getDemoDiagnosticDetails("Hand");
-    expect(handDetails.modality).toContain("Musculoskeletal X-Ray");
+    expect(handDetails.modality).toContain("Hand / Wrist");
     expect(handDetails.anatomicalChecklist).toBeDefined();
     expect(handDetails.findings).toBeDefined();
-    expect(handDetails.impression).toContain("preserved bony alignment");
+    expect(handDetails.impression).toContain("Normal hand and wrist X-Ray");
+
+    const kneeDetails = getDemoDiagnosticDetails("Knee");
+    expect(kneeDetails.modality).toContain("Knee");
+    expect(kneeDetails.impression).toContain("Normal knee X-Ray");
+
+    const spineDetails = getDemoDiagnosticDetails("Spine");
+    expect(spineDetails.modality).toContain("Spine");
+    expect(spineDetails.impression).toContain("Normal spine X-Ray");
+
+    const pelvisDetails = getDemoDiagnosticDetails("Pelvis");
+    expect(pelvisDetails.modality).toContain("Pelvis / Hip");
+    expect(pelvisDetails.impression).toContain("Normal pelvis and hip X-Ray");
+
+    const dentalDetails = getDemoDiagnosticDetails("Dental");
+    expect(dentalDetails.modality).toContain("Dental");
+    expect(dentalDetails.impression).toContain("Dental X-Ray");
   });
 });

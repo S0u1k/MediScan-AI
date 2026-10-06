@@ -129,6 +129,11 @@ export function XRayAnalyzer() {
           const isAlert = result.fractureDetected || result.urgency === "Urgent" || result.urgency === "Emergency";
           const strokeColor = isAlert ? "#f43f5e" : "#06b6d4";
           const shadowColor = isAlert ? "rgba(244,63,94,0.7)" : "rgba(6,182,212,0.7)";
+          const fillColor = isAlert ? "rgba(244,63,94,0.12)" : "rgba(6,182,212,0.08)";
+
+          // Subtle focus highlight over the target region
+          ctx.fillStyle = fillColor;
+          ctx.fillRect(bx, by, bw, bh);
 
           ctx.lineWidth = Math.max(2, canvas.width * 0.005);
           ctx.strokeStyle = strokeColor;
@@ -148,7 +153,12 @@ export function XRayAnalyzer() {
           ctx.stroke();
 
           // Targeted identification badge
-          const label = `${result.bodyPart} · ${result.confidence}% Match`;
+          const primaryAbn = result.suspectedAbnormalities?.[0];
+          const label = isAlert && primaryAbn
+            ? `⚠️ ${primaryAbn.title}`
+            : isAlert && result.fractureDetected
+            ? `⚠️ Fracture / Bone Disruption`
+            : `✓ ${result.bodyPart} · Normal (${result.confidence}%)`;
           ctx.font = `600 ${Math.max(11, canvas.width * 0.024)}px Poppins, sans-serif`;
           const padding = 8;
           const textW = ctx.measureText(label).width;
@@ -199,6 +209,7 @@ export function XRayAnalyzer() {
 
       let aiResult: XRayResult | null = null;
       let aiSaysNotXray = false;
+      let nonXrayReason: string | undefined = undefined;
 
       try {
         const res = await fetch("/api/xray-analyze", {
@@ -236,6 +247,7 @@ export function XRayAnalyzer() {
           const r = data.result;
           if (r.isXray === false) {
             aiSaysNotXray = true;
+            nonXrayReason = r.explanation;
           } else {
             const detection = detectBodyRegion(img);
             aiResult = {
@@ -272,7 +284,10 @@ export function XRayAnalyzer() {
 
       if (aiSaysNotXray) {
         setIsProcessing(false);
-        setError("This image does not appear to be a medical X-ray scan. Please upload a genuine X-ray image (e.g. Chest, Hand, Knee, Spine, Bone radiograph).");
+        setError(
+          nonXrayReason ||
+            "This image does not appear to be a medical X-ray scan. Please upload a genuine X-ray image (e.g. Chest, Hand, Knee, Spine, Bone radiograph)."
+        );
         return;
       }
 
@@ -362,30 +377,30 @@ export function XRayAnalyzer() {
     if (!result) return;
     const lines = [
       "==============================================",
-      "   MEDISCAN AI - CLINICAL RADIOLOGY REPORT   ",
+      "       MEDISCAN AI - X-RAY ANALYSIS REPORT    ",
       "==============================================",
       `Date: ${new Date().toLocaleString()}`,
-      `Anatomical Region: ${result.bodyPart}`,
+      `Body Part / Region: ${result.bodyPart}`,
       result.subRegion ? `Sub-Region: ${result.subRegion}` : null,
       result.projection ? `Projection / View: ${result.projection}` : null,
       result.modality ? `Modality: ${result.modality}` : null,
-      `AI Radiologist Confidence: ${result.confidence}%`,
-      `Diagnostic Quality: ${result.imageQuality || "Adequate"}`,
-      `Clinical Urgency: ${result.urgency || "Routine"}`,
-      `Acute Fracture / Cortical Disruption: ${result.fractureDetected ? "SUSPECTED / NOTED" : "None Visualized"}`,
+      `AI Analysis Confidence: ${result.confidence}%`,
+      `Image Quality: ${result.imageQuality || "Adequate"}`,
+      `Urgency Level: ${result.urgency || "Routine"}`,
+      `Bone Fracture / Disruption: ${result.fractureDetected ? "FLAGGED / SUSPECTED" : "None Detected"}`,
       "",
-      "--- STRUCTURED ANATOMICAL INSPECTION ---",
+      "--- ANATOMICAL STRUCTURES CHECK ---",
       ...(result.anatomicalChecklist?.map((c) => `• [${c.status}] ${c.structure}: ${c.details}`) || []),
       "",
-      "--- RADIOLOGICAL FINDINGS ---",
+      "--- X-RAY FINDINGS ---",
       ...(result.findings?.map((f, i) => `${i + 1}. ${f}`) || [`• ${result.explanation}`]),
       "",
-      result.impression ? `--- RADIOLOGICAL IMPRESSION ---\n${result.impression}\n` : null,
+      result.impression ? `--- SUMMARY & IMPRESSION ---\n${result.impression}\n` : null,
       result.recommendations && result.recommendations.length > 0
-        ? `--- CLINICAL RECOMMENDATIONS ---\n${result.recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
+        ? `--- RECOMMENDED NEXT STEPS ---\n${result.recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
         : null,
-      "--- MEDICAL DISCLAIMER ---",
-      result.disclaimer || "AI-assisted preliminary radiographical screening. Not a definitive medical diagnosis. Must be reviewed by a board-certified radiologist or treating physician.",
+      "--- MEDICAL NOTICE ---",
+      result.disclaimer || "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional.",
       "==============================================",
     ]
       .filter(Boolean)
@@ -606,7 +621,7 @@ export function XRayAnalyzer() {
                   <p className="mt-1 text-base font-semibold text-white">{result.projection || "Standard View"}</p>
                 </div>
                 <div className="rounded-xl bg-white/5 p-3.5 ring-1 ring-white/10">
-                  <p className="text-xs text-white/50">Radiologist Confidence</p>
+                  <p className="text-xs text-white/50">AI Confidence</p>
                   <div className="mt-1 flex items-baseline gap-2">
                     <p className="text-base font-semibold text-cyan-400">{result.confidence}%</p>
                     <div className="h-1.5 flex-1 rounded-full bg-white/10 overflow-hidden">
@@ -619,6 +634,66 @@ export function XRayAnalyzer() {
                   <p className="mt-1 text-base font-semibold text-emerald-400">{result.imageQuality || "Optimal"}</p>
                 </div>
               </div>
+
+              {/* Problem & Location Highlight Card */}
+              {result.suspectedAbnormalities && result.suspectedAbnormalities.length > 0 ? (
+                <div className="rounded-2xl bg-rose-500/10 p-4 ring-1 ring-rose-500/30">
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-rose-300">
+                      <AlertTriangle className="h-4 w-4" />
+                      <p className="text-xs font-semibold uppercase tracking-wider">Detected Problem & Location</p>
+                    </div>
+                    <span className="rounded-full bg-rose-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-rose-300 ring-1 ring-rose-500/30">
+                      {result.suspectedAbnormalities.length} {result.suspectedAbnormalities.length === 1 ? "Issue" : "Issues"} Flagged
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {result.suspectedAbnormalities.map((abn, idx) => (
+                      <div key={idx} className="rounded-xl bg-slate-950/70 p-3 ring-1 ring-white/10">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-rose-200">{abn.title}</p>
+                          <span className="text-xs font-semibold text-cyan-400">{abn.confidence}% Confidence</span>
+                        </div>
+                        <p className="mt-1 text-xs font-medium text-cyan-300">
+                          📍 Location: <span className="text-white/90">{abn.location}</span>
+                        </p>
+                        {abn.description && (
+                          <p className="mt-1 text-xs text-white/70">{abn.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : result.fractureDetected ? (
+                <div className="rounded-2xl bg-rose-500/10 p-4 ring-1 ring-rose-500/30">
+                  <div className="mb-1 flex items-center gap-2 text-rose-300">
+                    <AlertTriangle className="h-4 w-4" />
+                    <p className="text-xs font-semibold uppercase tracking-wider">Detected Problem</p>
+                  </div>
+                  <p className="text-sm font-medium text-rose-200">
+                    Possible bone fracture or cortical alignment disruption flagged.
+                  </p>
+                  <p className="mt-1 text-xs text-cyan-300">
+                    📍 Target Location: <span className="text-white/80">{result.subRegion || result.bodyPart}</span>
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-emerald-500/10 p-4 ring-1 ring-emerald-500/25">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-emerald-300">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <p className="text-xs font-semibold uppercase tracking-wider">Health Status: Normal</p>
+                    </div>
+                    <span className="text-xs font-medium text-emerald-400/90">{result.confidence}% Match</span>
+                  </div>
+                  <p className="mt-1 text-sm text-emerald-100">
+                    No acute fracture, dislocation, or obvious abnormal lesion detected.
+                  </p>
+                  <p className="mt-0.5 text-xs text-white/60">
+                    Visualized field: {result.subRegion || result.bodyPart}
+                  </p>
+                </div>
+              )}
 
               {/* Navigation Tabs */}
               <div className="flex border-b border-white/10">
@@ -693,7 +768,7 @@ export function XRayAnalyzer() {
                   {/* Objective Radiological Findings */}
                   <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/50">
-                      Objective Visual Observations
+                      Observed X-Ray Findings
                     </p>
                     <ul className="space-y-2">
                       {(result.findings && result.findings.length > 0 ? result.findings : [result.explanation]).map(
@@ -711,7 +786,7 @@ export function XRayAnalyzer() {
                   {result.suspectedAbnormalities && result.suspectedAbnormalities.length > 0 && (
                     <div className="rounded-2xl bg-rose-500/10 p-4 ring-1 ring-rose-500/20">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-rose-300">
-                        Suspected Radiological Abnormalities
+                        Suspected X-Ray Abnormalities
                       </p>
                       <div className="space-y-2">
                         {result.suspectedAbnormalities.map((abn, idx) => (
@@ -736,7 +811,7 @@ export function XRayAnalyzer() {
                   {/* Formal Impression */}
                   <div className="rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-400">
-                      Radiological Impression
+                      X-Ray Impression & Summary
                     </p>
                     <p className="whitespace-pre-line text-sm leading-relaxed text-white/90 font-mono">
                       {result.impression || result.explanation}
@@ -770,7 +845,7 @@ export function XRayAnalyzer() {
               {activeTab === "technical" && (
                 <div className="space-y-3 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/50">
-                    <Info className="h-4 w-4" /> Technical & Acquisition Factors
+                    <Info className="h-4 w-4" /> X-Ray Technical Factors
                   </div>
                   <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                     <div className="rounded-xl bg-white/5 p-3">
@@ -832,7 +907,7 @@ export function XRayAnalyzer() {
       {history.length > 0 && (
         <GlassCard>
           <SectionTitle icon={<Camera className="h-5 w-5 text-white" strokeWidth={1.5} />}>
-            Recent Radiological Analyses
+            Recent X-Ray Scans
           </SectionTitle>
           <div className="mt-4 space-y-2">
             {history.slice(0, 5).map((h) => (

@@ -6,46 +6,58 @@ import { AI_MODELS } from "@/lib/config";
 
 export const runtime = "nodejs";
 
-const RADIOLOGY_SYSTEM_PROMPT = `You are MediScan AI's Diagnostic Radiology Vision Agent — an expert board-certified AI radiologist specialized in computer-assisted plain radiograph (X-ray) analysis.
+const RADIOLOGY_SYSTEM_PROMPT = `You are MediScan AI's X-Ray Vision Diagnostic Agent — an expert board-certified AI medical imaging specialist.
 
-Analyze this medical image with clinical precision:
+Analyze this image with clinical accuracy and concise clarity:
 
-STEP 1: AUTHENTICITY & MODALITY
-- Determine whether this image is an authentic plain medical radiograph (X-Ray), fluoroscopy, or dental panoramic radiograph.
-- If it is NOT an X-Ray (e.g. an everyday camera photo, selfie, pet/animal photo, document, illustration, or a non-radiograph scan like standard ultrasound or MRI volume):
-  Set "isXray": false, and explain precisely why in "explanation".
+TASK 1: X-RAY AUTHENTICITY VERIFICATION
+- Determine if this image is a genuine medical X-Ray scan (plain radiograph, fluoroscopy, orthopantomogram/dental OPG, or DXA bone scan).
+- If it is NOT an X-Ray (e.g. ordinary color photo, selfie, pet/animal, vehicle, document, cartoon, illustration, MRI slice, CT cross-section, or ultrasound):
+  Return "isXray": false, and explain precisely what kind of non-X-ray image it is in "explanation".
 
-STEP 2: ANATOMICAL IDENTIFICATION & PROJECTION
-- Identify the exact anatomical region (e.g., "Chest / Thorax", "Hand & Wrist", "Knee Joint", "Foot & Ankle", "Lumbar Spine", "Cervical Spine", "Pelvis & Hips", "Skull & Facial Bones", "Shoulder Joint", "Elbow & Forearm", "Abdomen", "Dental", "Other").
-- Identify specific sub-regions and visible skeletal/visceral landmarks (e.g., "Distal radius, ulna, carpal bones, metacarpals" or "Bilateral lung fields, cardiac silhouette, costophrenic angles, hemidiaphragms, clavicles, ribs").
-- Identify projection/view: "Posteroanterior (PA)", "Anteroposterior (AP)", "Lateral", "Oblique", "Axial", or "Indeterminate".
-- Identify modality: e.g. "Digital Plain Radiograph (X-Ray)".
+TASK 2: PRECISE BODY PART & PROJECTION IDENTIFICATION
+Identify the exact anatomical body part and view:
+- Body parts: "Chest", "Hand & Wrist", "Knee", "Foot & Ankle", "Lumbar Spine", "Cervical Spine", "Thoracic Spine", "Pelvis & Hip", "Shoulder", "Elbow & Forearm", "Leg (Femur/Tibia)", "Arm (Humerus)", "Skull & Facial Bones", "Dental / Jaw", "Abdomen", "Other".
+- Distinguish key landmarks:
+  * Hand/Wrist: Metacarpals, carpal bones, distal radius & ulna.
+  * Foot/Ankle: Metatarsals, tarsals (calcaneus, talus), malleoli.
+  * Knee: Distal femur condyles, proximal tibia plateau, patella.
+  * Chest: Rib cage, clavicles, lung fields, cardiac silhouette, costophrenic angles.
+  * Spine: Vertebral bodies, pedicles, disc spaces, spinal curvature.
+- Sub-region: specific anatomical structures visualized (e.g. "Distal radial metaphysis and scaphoid" or "Bilateral lower lung zones and cardiophrenic angles").
+- Projection / View: "Posteroanterior (PA)", "Anteroposterior (AP)", "Lateral", "Oblique", "Axial", or "Standard View".
+- Modality: "Digital Plain X-Ray".
 
-STEP 3: TECHNICAL QUALITY & INTEGRITY
-- Assess image quality: "Optimal" | "Adequate" | "Sub-optimal" | "Poor".
-- Note technical factors: penetration/exposure (adequate, overexposed, underexposed), rotation/centering, artifacts, or visible surgical hardware/foreign bodies.
+TASK 3: PROBLEM LOCALIZATION & PATHOLOGY SCREENING
+Accurately screen for any abnormality and PINPOINT EXACTLY WHERE IT IS:
+- Bone integrity / Cortical margin: Check for cortical disruption, fracture line (transverse, oblique, spiral, comminuted, hairline, avulsion), or step-off. (Do NOT confuse normal pediatric growth plates/physes or sesamoid bones with fractures).
+- Joint space: Dislocation, subluxation, osteophyte spurring, joint narrowing (osteoarthritis).
+- Chest fields: Focal consolidation/pneumonia (specify lobe/zone), pneumothorax (visceral pleural line), pleural effusion (costophrenic blunting), cardiomegaly (CTR > 0.50).
+- Spine: Compression deformity, disc space reduction, listhesis.
+- Foreign bodies / Surgical hardware: Metallic densities, plates, screws.
+- If an acute fracture or cortical break is present: set "fractureDetected": true.
+- Urgency: "Routine" (normal or mild chronic wear), "Moderate" (non-emergent finding needing doctor follow-up), "Urgent" (acute fracture, pneumonia/consolidation, significant effusion), or "Emergency" (tension pneumothorax, massive trauma).
 
-STEP 4: STRUCTURED ANATOMICAL CHECKLIST
-Evaluate major anatomical structures visible and assign a status ("Normal" | "Suspicious" | "Abnormal" | "Not Assessable") with concise details:
-- For Musculoskeletal: Cortical Bone Continuity, Joint Space & Congruity, Periarticular Soft Tissues.
-- For Chest: Lung Parenchyma & Vasculature, Cardiomediastinal Contour, Costophrenic Sulci, Thoracic Cage & Clavicles.
+TASK 4: BOUNDING BOX PINPOINTING (0.0 to 1.0 fraction of image width and height)
+- If an abnormality, fracture, focal opacity, or lesion is detected:
+  "boundingBox" MUST TIGHTLY FRAME THE EXACT PATHOLOGICAL LESION OR INJURY SITE (do NOT return a full-image box).
+- If the X-ray is normal / unremarkable:
+  "boundingBox" must frame the primary joint or central anatomical structure of interest.
 
-STEP 5: RADIOLOGICAL FINDINGS & PATHOLOGY SCREENING
-- List objective radiological findings.
-- Actively screen for:
-  * Cortical breaks, acute fracture lines, step-offs, periosteal reactions, dislocations, or subluxations.
-  * Joint space narrowing, osteophytes, subchondral sclerosis.
-  * (If chest): Focal consolidations, airspace opacities, pneumothorax, pleural effusion, cardiomegaly (cardiothoracic ratio > 0.50).
-  * Radio-dense foreign bodies or implants.
-- If a fracture or acute cortical disruption is observed, set "fractureDetected": true.
-- Urgency: "Routine" (normal or mild chronic degenerative changes), "Moderate" (non-emergent abnormality needing clinical follow-up), "Urgent" (acute fracture, pneumonia/consolidation, significant effusion), or "Emergency" (tension pneumothorax, massive trauma).
+TASK 5: CONCISE STRUCTURED REPORT (KEEP CONCISE, UNDER 350 WORDS TOTAL)
+- "anatomicalChecklist": 3 to 4 key anatomical structures checked, with "status" ("Normal" | "Suspicious" | "Abnormal") and 1-sentence "details".
+- "findings": 2 to 4 concise bullet points describing visual findings.
+- "suspectedAbnormalities": array of problems found (up to 2 items). If normal, return [].
+  Each item must include:
+  * "title": concise name of the problem (e.g., "Distal Radius Metaphyseal Fracture" or "Left Lower Lobe Consolidation").
+  * "location": exact anatomical spot (e.g., "Distal radius cortex, 2cm proximal to wrist joint").
+  * "description": concise 1-sentence description.
+  * "confidence": integer 0-100.
+- "impression": 1 to 2 clear numbered sentences stating the diagnostic conclusion (finding + location).
+- "recommendations": 2 clear actionable next steps.
+- "explanation": 1 concise summary sentence.
 
-STEP 6: IMPRESSION & CLINICAL NEXT STEPS
-- Provide a clear, professional numbered diagnostic "impression".
-- Provide actionable "recommendations" for clinical correlation, physical examination, or specialist referral.
-- Provide a precise "boundingBox": {"x": number, "y": number, "width": number, "height": number} (values 0.0 to 1.0) highlighting the primary anatomical focus or finding.
-
-Return ONLY a strict JSON object conforming to this schema (no markdown formatting, no extra commentary):
+Return ONLY a strict JSON object conforming to this schema:
 {
   "isXray": boolean,
   "bodyPart": string,
@@ -58,7 +70,7 @@ Return ONLY a strict JSON object conforming to this schema (no markdown formatti
   "urgency": "Routine" | "Moderate" | "Urgent" | "Emergency",
   "fractureDetected": boolean,
   "anatomicalChecklist": [
-    { "structure": string, "status": "Normal" | "Suspicious" | "Abnormal" | "Not Assessable", "details": string }
+    { "structure": string, "status": "Normal" | "Suspicious" | "Abnormal", "details": string }
   ],
   "findings": string[],
   "suspectedAbnormalities": [
@@ -68,7 +80,7 @@ Return ONLY a strict JSON object conforming to this schema (no markdown formatti
   "recommendations": string[],
   "explanation": string,
   "boundingBox": { "x": number, "y": number, "width": number, "height": number },
-  "disclaimer": "AI-assisted preliminary radiographical screening. Not a definitive medical diagnosis. Must be reviewed by a board-certified radiologist or treating physician."
+  "disclaimer": "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional."
 }`;
 
 interface Payload {
@@ -221,31 +233,37 @@ export async function POST(request: Request) {
 
   // Normalize bounding box coordinates to ensure safety
   const rawBox = parsed.boundingBox;
-  const normalizedBox =
+  let normalizedBox = { x: 0.15, y: 0.12, width: 0.7, height: 0.76 };
+  if (
     rawBox &&
     typeof rawBox.x === "number" &&
     typeof rawBox.y === "number" &&
     typeof rawBox.width === "number" &&
     typeof rawBox.height === "number"
-      ? {
-          x: Math.max(0, Math.min(0.95, rawBox.x)),
-          y: Math.max(0, Math.min(0.95, rawBox.y)),
-          width: Math.max(0.05, Math.min(1, rawBox.width)),
-          height: Math.max(0.05, Math.min(1, rawBox.height)),
-        }
-      : { x: 0.15, y: 0.12, width: 0.7, height: 0.76 };
+  ) {
+    const clampedX = Math.max(0, Math.min(0.95, rawBox.x));
+    const clampedY = Math.max(0, Math.min(0.95, rawBox.y));
+    const maxWidth = 1 - clampedX;
+    const maxHeight = 1 - clampedY;
+    normalizedBox = {
+      x: clampedX,
+      y: clampedY,
+      width: Math.max(0.04, Math.min(maxWidth, Math.abs(rawBox.width))),
+      height: Math.max(0.04, Math.min(maxHeight, Math.abs(rawBox.height))),
+    };
+  }
 
   const validUrgency: ("Routine" | "Moderate" | "Urgent" | "Emergency")[] = ["Routine", "Moderate", "Urgent", "Emergency"];
   const urgency = validUrgency.includes(parsed.urgency as any) ? parsed.urgency! : "Routine";
 
   const sanitizedResult = {
     isXray: true,
-    bodyPart: parsed.bodyPart || "Radiograph",
+    bodyPart: parsed.bodyPart || "X-Ray Scan",
     subRegion: parsed.subRegion || "Visualized anatomical field",
-    projection: parsed.projection || "Plain Radiograph",
-    modality: parsed.modality || "Digital Plain Radiograph (X-Ray)",
+    projection: parsed.projection || "Standard View",
+    modality: parsed.modality || "Digital Plain X-Ray",
     imageQuality: parsed.imageQuality || "Adequate",
-    technicalFactors: parsed.technicalFactors || "Adequate radiographic penetration and field of view.",
+    technicalFactors: parsed.technicalFactors || "Adequate X-ray penetration and anatomical coverage.",
     confidence: Math.max(50, Math.min(100, Math.round(parsed.confidence || 88))),
     urgency,
     fractureDetected: Boolean(parsed.fractureDetected),
@@ -256,9 +274,9 @@ export async function POST(request: Request) {
           details: String(item.details || "Continuous cortical and articular contours."),
         }))
       : [
-          { structure: "Cortical Bone Alignment", status: "Evaluated", details: "Continuous contours without obvious displaced step-off." },
-          { structure: "Joint Spaces", status: "Preserved", details: "Congruent articular spaces without gross subluxation." },
-          { structure: "Soft Tissue Envelope", status: "Unremarkable", details: "No gross radiopaque foreign body identified." },
+          { structure: "Cortical Bone Alignment", status: "Normal", details: "Continuous contours without obvious displaced step-off." },
+          { structure: "Joint Spaces", status: "Normal", details: "Congruent articular spaces without gross subluxation." },
+          { structure: "Soft Tissue Envelope", status: "Normal", details: "No gross radiopaque foreign body identified." },
         ],
     findings: Array.isArray(parsed.findings) && parsed.findings.length > 0
       ? parsed.findings.map(String)
@@ -275,16 +293,16 @@ export async function POST(request: Request) {
           confidence: Math.max(0, Math.min(100, Math.round(a.confidence || 75))),
         }))
       : [],
-    impression: parsed.impression || `1. Radiographical evaluation of ${parsed.bodyPart || "visualized region"} demonstrates preserved gross alignment. Clinical correlation recommended.`,
+    impression: parsed.impression || `1. X-Ray evaluation of ${parsed.bodyPart || "visualized region"} demonstrates preserved gross alignment. Clinical correlation recommended.`,
     recommendations: Array.isArray(parsed.recommendations) && parsed.recommendations.length > 0
       ? parsed.recommendations.map(String)
       : [
           "Correlate with localized physical examination and patient symptoms.",
-          "Consult a medical specialist or radiologist for formal clinical review.",
+          "Consult a doctor or orthopedic specialist for formal clinical evaluation.",
         ],
-    explanation: parsed.explanation || `Comprehensive radiological evaluation of ${parsed.bodyPart || "visualized anatomy"} completed.`,
+    explanation: parsed.explanation || `Comprehensive X-ray analysis of ${parsed.bodyPart || "visualized anatomy"} completed.`,
     boundingBox: normalizedBox,
-    disclaimer: parsed.disclaimer || "AI-assisted preliminary radiographical screening. Not a definitive medical diagnosis. Must be reviewed by a board-certified radiologist or treating physician.",
+    disclaimer: parsed.disclaimer || "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional.",
   };
 
   return NextResponse.json({ available: true, result: sanitizedResult }, { status: 200 });

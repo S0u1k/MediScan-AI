@@ -319,49 +319,225 @@ export function bodyPartFromFileName(fileName: string): XRayBodyPart | null {
  */
 export function getDemoDiagnosticDetails(bodyPart: string): Partial<XRayResult> {
   const norm = bodyPart.toLowerCase();
-  if (norm.includes("chest")) {
+
+  if (norm.includes("chest") || norm.includes("lung") || norm.includes("thorax")) {
     return {
       subRegion: "Thorax, Bilateral Lung Fields, Cardiac Contour, Costophrenic Angles",
       projection: "Posteroanterior (PA)",
-      modality: "Digital Plain Radiograph (Chest X-Ray)",
+      modality: "Digital Plain X-Ray (Chest)",
       imageQuality: "Adequate",
-      technicalFactors: "Adequate inspiratory volume, central clavicular alignment, no gross rotation artifacts.",
+      technicalFactors: "Adequate inspiratory volume, symmetric clavicular alignment, no gross rotation artifacts.",
       urgency: "Routine",
       fractureDetected: false,
       anatomicalChecklist: [
-        { structure: "Lung Parenchyma & Pleura", status: "Normal", details: "Clear bilateral lung fields without focal consolidation, pneumothorax, or large pleural effusion." },
-        { structure: "Cardiomediastinal Contour", status: "Normal", details: "Cardiothoracic ratio within physiological limits (<0.50). Mediastinal width normal." },
-        { structure: "Costophrenic Angles & Diaphragms", status: "Normal", details: "Bilateral costophrenic and cardiophrenic sulci sharp and well-delineated." },
-        { structure: "Thoracic Skeletal Cage", status: "Normal", details: "Visualized clavicles, ribs, and thoracic vertebral bodies show continuous cortical margins." },
+        { structure: "Lung Fields & Parenchyma", status: "Normal", details: "Clear bilateral lung aeration without focal alveolar consolidation or pneumothorax." },
+        { structure: "Cardiac Silhouette", status: "Normal", details: "Cardiothoracic ratio within normal physiological limits (<0.50)." },
+        { structure: "Costophrenic Angles & Diaphragms", status: "Normal", details: "Bilateral costophrenic angles sharp and clear; no pleural effusion." },
+        { structure: "Thoracic Skeletal Cage", status: "Normal", details: "Visualized ribs, clavicles, and thoracic spine show intact cortical outlines." },
       ],
       findings: [
-        "Lungs are well-aerated bilaterally without active focal alveolar infiltrates.",
+        "Lungs are clear bilaterally with no active focal consolidation or infiltrate.",
         "Normal cardiac size and mediastinal contours.",
-        "Sharp bilateral costophrenic angles; no overt pleural effusion.",
-        "Visualized osseous thorax shows no displaced fracture or acute dislocation.",
+        "Sharp bilateral costophrenic angles with no visible pleural effusion.",
+        "Thoracic osseous structures appear intact without acute fracture.",
       ],
       suspectedAbnormalities: [],
-      impression: "1. Normal chest radiograph. No acute cardiopulmonary disease, focal consolidation, pneumothorax, or acute bony injury visualized.",
+      impression: "1. Normal chest X-Ray. No focal pneumonia, pneumothorax, effusion, or acute bony injury identified.",
       recommendations: [
-        "Routine clinical correlation with presenting symptoms (e.g. cough, fever, or chest discomfort).",
-        "Consult your treating physician for comprehensive evaluation.",
+        "Routine clinical correlation with presenting symptoms (e.g. cough, fever, shortness of breath).",
+        "Consult your physician for comprehensive clinical management.",
       ],
-      disclaimer: "AI-assisted preliminary radiographical screening. Not a definitive medical diagnosis. Must be reviewed by a certified radiologist.",
+      disclaimer: "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional.",
+    };
+  }
+
+  if (norm.includes("knee")) {
+    return {
+      subRegion: "Tibiofemoral & Patellofemoral Articulations, Patella, Proximal Tibia/Fibula",
+      projection: "Anteroposterior (AP) & Lateral",
+      modality: "Digital Plain X-Ray (Knee)",
+      imageQuality: "Adequate",
+      technicalFactors: "Adequate bone penetration and knee joint alignment.",
+      urgency: "Routine",
+      fractureDetected: false,
+      anatomicalChecklist: [
+        { structure: "Distal Femoral Condyles", status: "Normal", details: "Smooth cortical contours without acute fracture line or osteochondral defect." },
+        { structure: "Proximal Tibial Plateau & Spines", status: "Normal", details: "Intact articular surface; intercondylar eminence preserved without avulsion." },
+        { structure: "Tibiofemoral Joint Space", status: "Normal", details: "Medial and lateral joint compartments symmetric and well-preserved." },
+        { structure: "Patella & Soft Tissues", status: "Normal", details: "Patella normally positioned; no suprapatellar joint effusion distension." },
+      ],
+      findings: [
+        "Tibiofemoral and patellofemoral joint spaces are well-preserved.",
+        "No evidence of acute cortical fracture, tibial plateau depression, or dislocation.",
+        "No suprapatellar joint effusion or radiopaque loose bodies visible.",
+      ],
+      suspectedAbnormalities: [],
+      impression: "1. Normal knee X-Ray. Preserved joint spaces without acute fracture, dislocation, or joint effusion.",
+      recommendations: [
+        "Correlate with physical knee examination, ligament stability, and weight-bearing tolerance.",
+        "Consult an orthopedic specialist or doctor if localized pain or swelling persists.",
+      ],
+      disclaimer: "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional.",
+    };
+  }
+
+  if (norm.includes("hand") || norm.includes("wrist")) {
+    return {
+      subRegion: "Distal Radius & Ulna, Carpal Rows, Metacarpals & Phalanges",
+      projection: "Posteroranterior (PA) & Oblique",
+      modality: "Digital Plain X-Ray (Hand / Wrist)",
+      imageQuality: "Adequate",
+      technicalFactors: "Clear bone trabecular detail and joint space clarity.",
+      urgency: "Routine",
+      fractureDetected: false,
+      anatomicalChecklist: [
+        { structure: "Distal Radial & Ulnar Metaphysis", status: "Normal", details: "Continuous cortical margins without step-off, buckle, or Colles' deformity." },
+        { structure: "Carpal Bones & Gilula's Arcs", status: "Normal", details: "Normal carpal row alignment; scaphoid waist and lunate appear intact." },
+        { structure: "Metacarpals & Interphalangeal Joints", status: "Normal", details: "Articular spaces congruent; no displaced fracture or dislocation." },
+      ],
+      findings: [
+        "Intact bony cortices across the radius, ulna, carpals, and tubular hand bones.",
+        "Gilula's carpal arcs are congruent without carpal dissociation.",
+        "No acute cortical interruption, dislocation, or radio-dense foreign bodies.",
+      ],
+      suspectedAbnormalities: [],
+      impression: "1. Normal hand and wrist X-Ray. Preserved bony alignment without acute cortical fracture or joint dislocation.",
+      recommendations: [
+        "Correlate with anatomical snuffbox tenderness and range of motion.",
+        "Consult an orthopedic clinician if pain persists or clinical suspicion for occult fracture remains.",
+      ],
+      disclaimer: "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional.",
+    };
+  }
+
+  if (norm.includes("foot") || norm.includes("ankle")) {
+    return {
+      subRegion: "Distal Tibiofibular Mortise, Tarsus, Metatarsals & Phalanges",
+      projection: "Anteroposterior (AP) & Mortise View",
+      modality: "Digital Plain X-Ray (Foot / Ankle)",
+      imageQuality: "Adequate",
+      technicalFactors: "Sufficient radiographic density across osseous structures.",
+      urgency: "Routine",
+      fractureDetected: false,
+      anatomicalChecklist: [
+        { structure: "Ankle Mortise & Malleoli", status: "Normal", details: "Medial and lateral malleoli intact; mortise joint space uniform." },
+        { structure: "Calcaneus, Talus & Tarsals", status: "Normal", details: "Smooth cortical outlines; Böhler's angle within normal physiological limits." },
+        { structure: "Metatarsals (including 5th base)", status: "Normal", details: "No tuberosity avulsion, Jones fracture, or stress fracture." },
+      ],
+      findings: [
+        "Ankle mortise is symmetric and intact without joint widening or diastasis.",
+        "No cortical breaks identified across the malleoli, calcaneus, or metatarsals.",
+        "Periarticular soft tissue contours are unremarkable without radiopaque foreign bodies.",
+      ],
+      suspectedAbnormalities: [],
+      impression: "1. Normal foot and ankle X-Ray. No acute fracture, mortise disruption, or joint subluxation visualized.",
+      recommendations: [
+        "Correlate with weight-bearing ability and localized ligamentous tenderness.",
+        "Consult an orthopedic specialist or doctor if pain or swelling persists.",
+      ],
+      disclaimer: "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional.",
+    };
+  }
+
+  if (norm.includes("spine") || norm.includes("back") || norm.includes("vertebra")) {
+    return {
+      subRegion: "Vertebral Bodies, Pedicles, Spinous Processes, Intervertebral Spaces",
+      projection: "Anteroposterior (AP) & Lateral",
+      modality: "Digital Plain X-Ray (Spine)",
+      imageQuality: "Adequate",
+      technicalFactors: "Adequate penetration through vertebral columns and disc spaces.",
+      urgency: "Routine",
+      fractureDetected: false,
+      anatomicalChecklist: [
+        { structure: "Vertebral Body Heights", status: "Normal", details: "No compression deformities, anterior wedging, or acute step-offs." },
+        { structure: "Intervertebral Disc Spaces", status: "Normal", details: "Disc spaces well-maintained; no severe disc collapse." },
+        { structure: "Spinal Alignment & Curvature", status: "Normal", details: "Smooth anterior and posterior longitudinal lines; no spondylolisthesis." },
+      ],
+      findings: [
+        "Vertebral body heights and alignment are preserved across the visualized column.",
+        "Intervertebral disc spaces are maintained with no gross narrowing.",
+        "No acute compression fractures, subluxation, or destructive lytic lesions identified.",
+      ],
+      suspectedAbnormalities: [],
+      impression: "1. Normal spine X-Ray. Preserved vertebral alignment and body heights without acute fracture or spondylolisthesis.",
+      recommendations: [
+        "Correlate with clinical neurological examination and symptoms of radiculopathy.",
+        "Consult a spine specialist or physician if back symptoms or radiating pain persist.",
+      ],
+      disclaimer: "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional.",
+    };
+  }
+
+  if (norm.includes("pelvis") || norm.includes("hip")) {
+    return {
+      subRegion: "Pelvic Ring, Sacroiliac Joints, Bilateral Acetabula & Femoral Heads",
+      projection: "Anteroposterior (AP)",
+      modality: "Digital Plain X-Ray (Pelvis / Hip)",
+      imageQuality: "Adequate",
+      technicalFactors: "Symmetric pelvic centering with adequate femoral neck visualization.",
+      urgency: "Routine",
+      fractureDetected: false,
+      anatomicalChecklist: [
+        { structure: "Pelvic Ring Continuity", status: "Normal", details: "Intact pelvic ring; pubic symphysis and sacroiliac joints congruent." },
+        { structure: "Femoral Heads & Necks", status: "Normal", details: "Femoral heads spherical; Shenton's line continuous bilaterally." },
+        { structure: "Acetabular & Hip Joint Spaces", status: "Normal", details: "Preserved joint spaces without superior or axial joint space loss." },
+      ],
+      findings: [
+        "Continuous cortical outlines across the pelvic ring, iliac wings, and acetabula.",
+        "Shenton's lines are continuous bilaterally without disruption.",
+        "No acute fracture lines, subchondral collapse, or hip joint subluxation.",
+      ],
+      suspectedAbnormalities: [],
+      impression: "1. Normal pelvis and hip X-Ray. Pelvic ring intact; no acute femoral neck or acetabular fracture.",
+      recommendations: [
+        "Correlate with hip range of motion and weight-bearing ability.",
+        "Consult an orthopedic clinician if hip or groin pain persists.",
+      ],
+      disclaimer: "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional.",
+    };
+  }
+
+  if (norm.includes("dental") || norm.includes("tooth") || norm.includes("teeth") || norm.includes("jaw")) {
+    return {
+      subRegion: "Maxillary & Mandibular Dental Arches, Alveolar Bone, Temporomandibular Joints",
+      projection: "Panoramic / Orthopantomogram (OPG)",
+      modality: "Digital Plain X-Ray (Dental Panoramic)",
+      imageQuality: "Adequate",
+      technicalFactors: "Comprehensive panoramic coverage of dentition and mandibular ramus.",
+      urgency: "Routine",
+      fractureDetected: false,
+      anatomicalChecklist: [
+        { structure: "Alveolar Crest & Bone Support", status: "Normal", details: "Uniform alveolar bone height without severe horizontal bone loss." },
+        { structure: "Tooth Roots & Periapical Tissues", status: "Normal", details: "No distinct periapical radiolucency, granuloma, or root resorption." },
+        { structure: "Mandible & Condyles", status: "Normal", details: "Continuous mandibular border; symmetric condylar morphology." },
+      ],
+      findings: [
+        "Visualized dentition demonstrates intact coronal and radicular structures.",
+        "No overt gross caries, periapical abscess, or pathological cystic radiolucency.",
+        "Mandibular cortex is continuous with no acute fracture.",
+      ],
+      suspectedAbnormalities: [],
+      impression: "1. Dental X-Ray demonstrates intact mandibular continuity and dental arches without gross periapical pathology or acute bone fracture.",
+      recommendations: [
+        "Routine dental checkup and clinical periodontal correlation.",
+        "Consult a dental surgeon for comprehensive clinical oral examination.",
+      ],
+      disclaimer: "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional.",
     };
   }
 
   return {
-    subRegion: `${bodyPart} - Bone Shaft, Articular Margins & Periarticular Soft Tissue`,
+    subRegion: `${bodyPart} - Cortical Bone Shaft, Articular Margins & Periarticular Soft Tissue`,
     projection: "Anteroposterior (AP) / Lateral",
-    modality: "Digital Plain Radiograph (Musculoskeletal X-Ray)",
+    modality: "Digital Plain X-Ray",
     imageQuality: "Adequate",
-    technicalFactors: "Adequate bone penetration and anatomical coverage across visualized field.",
+    technicalFactors: "Adequate X-ray penetration and anatomical coverage across visualized field.",
     urgency: "Routine",
     fractureDetected: false,
     anatomicalChecklist: [
-      { structure: "Cortical Bone & Continuity", status: "Normal", details: "Smooth cortical margins without acute step-off, disruption, or periosteal reaction." },
-      { structure: "Joint Space & Alignment", status: "Normal", details: "Joint spaces congruent and preserved; no gross dislocation or subluxation." },
-      { structure: "Soft Tissue Architecture", status: "Normal", details: "No obvious radiopaque foreign bodies or asymmetric periarticular soft tissue distension." },
+      { structure: "Cortical Bone Alignment", status: "Normal", details: "Smooth cortical margins without acute step-off, disruption, or periosteal reaction." },
+      { structure: "Joint Space & Congruity", status: "Normal", details: "Joint spaces congruent and preserved; no gross dislocation or subluxation." },
+      { structure: "Soft Tissue Architecture", status: "Normal", details: "No obvious radiopaque foreign bodies or asymmetric periarticular soft tissue swelling." },
     ],
     findings: [
       `Visualized cortical architecture of the ${bodyPart} appears intact.`,
@@ -369,12 +545,12 @@ export function getDemoDiagnosticDetails(bodyPart: string): Partial<XRayResult> 
       "No overt radio-dense foreign bodies or gross soft tissue swelling.",
     ],
     suspectedAbnormalities: [],
-    impression: `1. Visualized radiograph of the ${bodyPart} demonstrates preserved bony alignment without obvious acute displaced fracture or gross dislocation.`,
+    impression: `1. Visualized X-Ray of the ${bodyPart} demonstrates preserved bony alignment without obvious acute displaced fracture or dislocation.`,
     recommendations: [
       "Correlate with localized physical tenderness and clinical range of motion.",
-      "If pain persists or clinical suspicion for occult fracture is high, orthogonal follow-up view or specialist consultation is recommended.",
+      "If pain persists or clinical suspicion for occult injury is high, doctor consultation is recommended.",
     ],
-    disclaimer: "AI-assisted preliminary radiographical screening. Not a definitive medical diagnosis. Must be reviewed by a certified radiologist.",
+    disclaimer: "AI-assisted preliminary X-ray screening. Not a definitive medical diagnosis. Must be reviewed by a certified healthcare professional.",
   };
 }
 
